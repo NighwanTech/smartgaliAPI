@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 import * as userService from './user.service.js';
 import bcrypt from 'bcrypt';
 
@@ -13,7 +14,7 @@ export const createUser = async (req, res, next) => {
 
     // Set profile_image path if a file was uploaded
     if (req.file) {
-      userData.profile_image = req.file.path.replace(/\\/g, '/');
+      userData.profile_image = getImageUrl(req, req.file, 'user');
     }
 
     const user = await userService.createUser(userData);
@@ -75,7 +76,7 @@ export const updateUser = async (req, res, next) => {
 
     // Set new profile_image path if a new file was uploaded
     if (req.file) {
-      updateData.profile_image = req.file.path.replace(/\\/g, '/');
+      updateData.profile_image = getImageUrl(req, req.file, 'user');
     }
 
     const user = await userService.updateUser(req.params.id, updateData);

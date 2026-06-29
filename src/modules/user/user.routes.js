@@ -1,6 +1,6 @@
 import express from 'express';
 import * as userController from './user.controller.js';
-import { upload } from '../../middleware/upload.middleware.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -57,7 +57,7 @@ const router = express.Router();
  *       201:
  *         description: User created successfully
  */
-router.post('/', upload.single('profile_image'), userController.createUser);
+router.post('/', uploadImage('user').single('profile_image'), userController.createUser);
 
 /**
  * @swagger
@@ -141,7 +141,7 @@ router.get('/:id', userController.getUserById);
  *       404:
  *         description: User not found
  */
-router.put('/:id', upload.single('profile_image'), userController.updateUser);
+router.put('/:id', uploadImage('user').single('profile_image'), userController.updateUser);
 
 /**
  * @swagger

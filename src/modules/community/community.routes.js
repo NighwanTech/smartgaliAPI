@@ -1,6 +1,6 @@
 import express from 'express';
 import * as communityController from './community.controller.js';
-import { upload } from '../../middleware/upload.middleware.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ const router = express.Router();
  *       201:
  *         description: Community created successfully
  */
-router.post('/', upload.single('cover_image'), communityController.createCommunity);
+router.post('/', uploadImage('community').single('cover_image'), communityController.createCommunity);
 
 /**
  * @swagger
@@ -121,7 +121,7 @@ router.get('/:id', communityController.getCommunityById);
  *       404:
  *         description: Community not found
  */
-router.put('/:id', upload.single('cover_image'), communityController.updateCommunity);
+router.put('/:id', uploadImage('community').single('cover_image'), communityController.updateCommunity);
 
 /**
  * @swagger

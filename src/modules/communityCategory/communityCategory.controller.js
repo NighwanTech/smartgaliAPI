@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 import * as communityCategoryService from './communityCategory.service.js';
 
 export const createCommunityCategory = async (req, res, next) => {
@@ -7,7 +8,7 @@ export const createCommunityCategory = async (req, res, next) => {
 
     // Set icon path if a file was uploaded
     if (req.file) {
-      categoryData.communityCategoryIcon = req.file.path.replace(/\\/g, '/');
+      categoryData.communityCategoryIcon = getImageUrl(req, req.file, 'communityCategory');
     }
 
     const category = await communityCategoryService.createCommunityCategory(categoryData);
@@ -47,7 +48,7 @@ export const updateCommunityCategory = async (req, res, next) => {
 
     // Set new icon path if a new file was uploaded
     if (req.file) {
-      updateData.communityCategoryIcon = req.file.path.replace(/\\/g, '/');
+      updateData.communityCategoryIcon = getImageUrl(req, req.file, 'communityCategory');
     }
 
     const category = await communityCategoryService.updateCommunityCategory(req.params.id, updateData);

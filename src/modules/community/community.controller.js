@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 import * as communityService from './community.service.js';
 
 export const createCommunity = async (req, res, next) => {
@@ -7,7 +8,7 @@ export const createCommunity = async (req, res, next) => {
 
     // Set cover image path if a file was uploaded
     if (req.file) {
-      communityData.cover_image = req.file.path.replace(/\\/g, '/');
+      communityData.cover_image = getImageUrl(req, req.file, 'community');
     }
 
     const community = await communityService.createCommunity(communityData);
@@ -44,7 +45,7 @@ export const updateCommunity = async (req, res, next) => {
 
     // Set new cover image path if a new file was uploaded
     if (req.file) {
-      updateData.cover_image = req.file.path.replace(/\\/g, '/');
+      updateData.cover_image = getImageUrl(req, req.file, 'community');
     }
 
     const community = await communityService.updateCommunity(req.params.id, updateData);

@@ -1,6 +1,6 @@
 import express from 'express';
 import * as communityCategoryController from './communityCategory.controller.js';
-import { upload } from '../../middleware/upload.middleware.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -35,7 +35,7 @@ const router = express.Router();
  *       201:
  *         description: Community Category created successfully
  */
-router.post('/', upload.single('communityCategoryIcon'), communityCategoryController.createCommunityCategory);
+router.post('/', uploadImage('communityCategory').single('communityCategoryIcon'), communityCategoryController.createCommunityCategory);
 
 /**
  * @swagger
@@ -99,7 +99,7 @@ router.get('/:id', communityCategoryController.getCommunityCategoryById);
  *       404:
  *         description: Community Category not found
  */
-router.put('/:id', upload.single('communityCategoryIcon'), communityCategoryController.updateCommunityCategory);
+router.put('/:id', uploadImage('communityCategory').single('communityCategoryIcon'), communityCategoryController.updateCommunityCategory);
 
 /**
  * @swagger
