@@ -6,6 +6,11 @@ import userProfileRoutes from '../modules/userProfile/userProfile.routes.js';
 import communityCategoryRoutes from '../modules/communityCategory/communityCategory.routes.js';
 import communityRoutes from '../modules/community/community.routes.js';
 import communityMemberRoutes from '../modules/communityMember/communityMember.routes.js';
+import businessCategoryRoutes from '../modules/business_category/business_category.routes.js';
+import businessProfileRoutes from '../modules/business_profile/business_profile.routes.js';
+import businessImageRoutes from '../modules/business_image/business_image.routes.js';
+import businessOfferRoutes from '../modules/business_offer/business_offer.routes.js';
+import businessReviewRoutes from '../modules/business_review/business_review.routes.js';
 
 const router = express.Router();
 
@@ -17,6 +22,11 @@ router.use('/user-profile', userProfileRoutes);
 router.use('/community-category', communityCategoryRoutes);
 router.use('/community', communityRoutes);
 router.use('/community-member', communityMemberRoutes);
+router.use('/business-category', businessCategoryRoutes);
+router.use('/business-profile', businessProfileRoutes);
+router.use('/business-image', businessImageRoutes);
+router.use('/business-offer', businessOfferRoutes);
+router.use('/business-review', businessReviewRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {
