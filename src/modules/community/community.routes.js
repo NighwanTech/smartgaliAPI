@@ -62,6 +62,42 @@ router.get('/', communityController.getAllCommunities);
 
 /**
  * @swagger
+ * /api/v1/community/my:
+ *   get:
+ *     summary: Get my communities
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: A list of communities joined by the user
+ */
+router.get('/my', communityController.getMyCommunities);
+
+/**
+ * @swagger
+ * /api/v1/community/suggested:
+ *   get:
+ *     summary: Get suggested communities
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: A list of suggested communities
+ */
+router.get('/suggested', communityController.getSuggestedCommunities);
+
+/**
+ * @swagger
  * /api/v1/community/{id}:
  *   get:
  *     summary: Get a community by ID
@@ -152,5 +188,113 @@ router.put('/:id', uploadImage('community').single('cover_image'), communityCont
  *         description: Community not found
  */
 router.delete('/:id', communityController.deleteCommunity);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/join:
+ *   post:
+ *     summary: Join a community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Joined successfully
+ */
+router.post('/:id/join', communityController.joinCommunity);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/leave:
+ *   post:
+ *     summary: Leave a community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Left successfully
+ */
+router.post('/:id/leave', communityController.leaveCommunity);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/members:
+ *   get:
+ *     summary: Get members of a community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of members
+ */
+router.get('/:id/members', communityController.getCommunityMembers);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/invite:
+ *   post:
+ *     summary: Invite a user to the community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - inviter_id
+ *               - invitee_id
+ *             properties:
+ *               inviter_id:
+ *                 type: integer
+ *               invitee_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Invitation sent successfully
+ */
+router.post('/:id/invite', communityController.inviteUser);
 
 export default router;

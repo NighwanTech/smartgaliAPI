@@ -11,6 +11,7 @@ import businessProfileRoutes from '../modules/business_profile/business_profile.
 import businessImageRoutes from '../modules/business_image/business_image.routes.js';
 import businessOfferRoutes from '../modules/business_offer/business_offer.routes.js';
 import businessReviewRoutes from '../modules/business_review/business_review.routes.js';
+import serviceCategoryRoutes from '../modules/service_category/service_category.routes.js';
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ router.use('/business-profile', businessProfileRoutes);
 router.use('/business-image', businessImageRoutes);
 router.use('/business-offer', businessOfferRoutes);
 router.use('/business-review', businessReviewRoutes);
+router.use('/service-category', serviceCategoryRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {
