@@ -21,7 +21,8 @@ export const connectDB = async () => {
     console.log('✅ Database connected successfully.');
     
     // Sync models (in production, use migrations instead of sync)
-    await sequelize.sync({ alter: env.nodeEnv === 'development' });
+    // Temporarily disabled alter: true to fix "Too many keys specified" error
+    await sequelize.sync({ alter: false });
     console.log('✅ Models synchronized.');
   } catch (error) {
     console.error('❌ Unable to connect to the database:', error);

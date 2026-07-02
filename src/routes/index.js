@@ -12,6 +12,29 @@ import businessImageRoutes from '../modules/business_image/business_image.routes
 import businessOfferRoutes from '../modules/business_offer/business_offer.routes.js';
 import businessReviewRoutes from '../modules/business_review/business_review.routes.js';
 import serviceCategoryRoutes from '../modules/service_category/service_category.routes.js';
+import serviceProviderProfileRoutes from '../modules/service_provider_profile/service_provider_profile.routes.js';
+import serviceListingRoutes from '../modules/service_listing/service_listing.routes.js';
+import serviceBookingRoutes from '../modules/service_booking/service_booking.routes.js';
+import serviceReviewRoutes from '../modules/service_review/service_review.routes.js';
+import societyProfileRoutes from '../modules/society_profile/society_profile.routes.js';
+import societyMemberRoutes from '../modules/society_member/society_member.routes.js';
+import societyFacilityRoutes from '../modules/society_facility/society_facility.routes.js';
+import societyAnnouncementRoutes from '../modules/society_announcement/society_announcement.routes.js';
+import societyComplaintRoutes from '../modules/society_complaint/society_complaint.routes.js';
+import mediaFileRoutes from '../modules/media_file/media_file.routes.js';
+import postRoutes from '../modules/post/post.routes.js';
+import postLikeRoutes from '../modules/post_like/post_like.routes.js';
+import postCommentRoutes from '../modules/post_comment/post_comment.routes.js';
+import postShareRoutes from '../modules/post_share/post_share.routes.js';
+import savedPostRoutes from '../modules/saved_post/saved_post.routes.js';
+import eventRoutes from '../modules/event/event.routes.js';
+import eventParticipantRoutes from '../modules/event_participant/event_participant.routes.js';
+import followRoutes from '../modules/follow/follow.routes.js';
+import chatRoutes from '../modules/chat/chat.routes.js';
+import chatParticipantRoutes from '../modules/chat_participant/chat_participant.routes.js';
+import messageRoutes from '../modules/message/message.routes.js';
+import reportRoutes from '../modules/report/report.routes.js';
+import notificationRoutes from '../modules/notification/notification.routes.js';
 
 const router = express.Router();
 
@@ -29,6 +52,29 @@ router.use('/business-image', businessImageRoutes);
 router.use('/business-offer', businessOfferRoutes);
 router.use('/business-review', businessReviewRoutes);
 router.use('/service-category', serviceCategoryRoutes);
+router.use('/service-provider-profile', serviceProviderProfileRoutes);
+router.use('/service-listing', serviceListingRoutes);
+router.use('/service-booking', serviceBookingRoutes);
+router.use('/service-review', serviceReviewRoutes);
+router.use('/society-profile', societyProfileRoutes);
+router.use('/society-member', societyMemberRoutes);
+router.use('/society-facility', societyFacilityRoutes);
+router.use('/society-announcement', societyAnnouncementRoutes);
+router.use('/society-complaint', societyComplaintRoutes);
+router.use('/media-file', mediaFileRoutes);
+router.use('/post', postRoutes);
+router.use('/post-like', postLikeRoutes);
+router.use('/post-comment', postCommentRoutes);
+router.use('/post-share', postShareRoutes);
+router.use('/saved-post', savedPostRoutes);
+router.use('/event', eventRoutes);
+router.use('/event-participant', eventParticipantRoutes);
+router.use('/follow', followRoutes);
+router.use('/chat', chatRoutes);
+router.use('/chat-participant', chatParticipantRoutes);
+router.use('/message', messageRoutes);
+router.use('/report', reportRoutes);
+router.use('/notification', notificationRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {
