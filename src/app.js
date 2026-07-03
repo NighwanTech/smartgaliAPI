@@ -10,7 +10,9 @@ import { setupSwagger } from './swagger.js';
 const app = express();
 
 // Global Middlewares
-app.use(helmet()); // Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+})); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON payloads
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded payloads
