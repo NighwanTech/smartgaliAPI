@@ -12,8 +12,8 @@ const options = {
     },
     servers: [
       {
-        url: `http://localhost:${env.port}`,
-        description: 'Development server',
+        url: env.nodeEnv === 'production' ? process.env.API_URL || '/' : `http://localhost:${env.port}`,
+        description: env.nodeEnv === 'production' ? 'Production server' : 'Development server',
       },
     ],
     components: {
