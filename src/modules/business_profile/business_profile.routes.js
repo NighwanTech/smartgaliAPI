@@ -1,5 +1,6 @@
 import express from 'express';
 import * as businessProfileController from './business_profile.controller.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -49,7 +50,7 @@ const router = express.Router();
  *       201:
  *         description: Business profile created successfully
  */
-router.post('/', businessProfileController.createProfile);
+router.post('/', uploadImage('business').single('logo'), businessProfileController.createProfile);
 
 /**
  * @swagger
@@ -126,7 +127,7 @@ router.get('/:id', businessProfileController.getProfileById);
  *       404:
  *         description: Business profile not found
  */
-router.put('/:id', businessProfileController.updateProfile);
+router.put('/:id', uploadImage('business').single('logo'), businessProfileController.updateProfile);
 
 /**
  * @swagger
@@ -158,4 +159,119 @@ router.put('/:id', businessProfileController.updateProfile);
  */
 router.delete('/:id', businessProfileController.deleteProfile);
 
+/**
+ * @swagger
+ * /api/v1/business-profile/{id}/approve:
+ *   put:
+ *     summary: Approve a business profile
+ *     tags: [BusinessProfiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updated_by:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Business profile approved successfully
+ *       404:
+ *         description: Business profile not found
+ */
+router.put('/:id/approve', businessProfileController.approveProfile);
+
+/**
+ * @swagger
+ * /api/v1/business-profile/{id}/reject:
+ *   put:
+ *     summary: Reject a business profile
+ *     tags: [BusinessProfiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rejectRemarks:
+ *                 type: string
+ *               updated_by:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Business profile rejected successfully
+ *       404:
+ *         description: Business profile not found
+ */
+router.put('/:id/reject', businessProfileController.rejectProfile);
+
+/**
+ * @swagger
+ * /api/v1/business-profile/{id}/feature:
+ *   put:
+ *     summary: Feature a business profile
+ *     tags: [BusinessProfiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updated_by:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Business profile featured successfully
+ *       404:
+ *         description: Business profile not found
+ */
+router.put('/:id/feature', businessProfileController.featureProfile);
+
+/**
+ * @swagger
+ * /api/v1/business-profile/{id}/unfeature:
+ *   put:
+ *     summary: Unfeature a business profile
+ *     tags: [BusinessProfiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updated_by:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Business profile unfeatured successfully
+ *       404:
+ *         description: Business profile not found
+ */
+router.put('/:id/unfeature', businessProfileController.unfeatureProfile);
+
 export default router;
+

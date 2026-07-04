@@ -1,5 +1,6 @@
 import express from 'express';
 import * as businessCategoryController from './business_category.controller.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ const router = express.Router();
  *       201:
  *         description: Business category created successfully
  */
-router.post('/', businessCategoryController.createCategory);
+router.post('/', uploadImage('category').single('icon'), businessCategoryController.createCategory);
 
 /**
  * @swagger
@@ -100,7 +101,7 @@ router.get('/:id', businessCategoryController.getCategoryById);
  *       404:
  *         description: Business category not found
  */
-router.put('/:id', businessCategoryController.updateCategory);
+router.put('/:id', uploadImage('category').single('icon'), businessCategoryController.updateCategory);
 
 /**
  * @swagger

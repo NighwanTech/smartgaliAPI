@@ -63,8 +63,15 @@ router.post('/', uploadImage('user').single('profile_image'), userController.cre
  * @swagger
  * /api/v1/user:
  *   get:
- *     summary: Get all active users
+ *     summary: Get users with optional roleName filter
  *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: roleName
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Role name to filter users by
  *     responses:
  *       200:
  *         description: A list of users
@@ -172,5 +179,41 @@ router.put('/:id', uploadImage('user').single('profile_image'), userController.u
  *         description: User not found
  */
 router.delete('/:id', userController.deleteUser);
+
+/**
+ * @swagger
+ * /api/v1/user/{id}/block:
+ *   put:
+ *     summary: Block a user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User blocked successfully
+ */
+router.put('/:id/block', userController.blockUser);
+
+/**
+ * @swagger
+ * /api/v1/user/{id}/unblock:
+ *   put:
+ *     summary: Unblock a user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User unblocked successfully
+ */
+router.put('/:id/unblock', userController.unblockUser);
 
 export default router;

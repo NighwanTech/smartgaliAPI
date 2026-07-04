@@ -7,6 +7,11 @@ const sequelize = new Sequelize(env.db.name, env.db.user, env.db.password, {
   dialect: 'mysql',
   port: env.db.port,
   logging: env.nodeEnv === 'development' ? console.log : false,
+  timezone: '+05:30',
+  dialectOptions: {
+    dateStrings: true,
+    typeCast: true,
+  },
   pool: {
     max: 5,
     min: 0,

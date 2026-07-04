@@ -34,7 +34,14 @@ export const createUser = async (req, res, next) => {
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const users = await userService.getAllUsers();
+    const roleName = req.query.roleName;
+    let users;
+    
+    if (roleName) {
+      users = await userService.getUsersByRole(roleName);
+    } else {
+      users = await userService.getAllUsers();
+    }
     
     // Remove passwords from response
     const usersResponse = users.map(user => {
@@ -101,6 +108,30 @@ export const deleteUser = async (req, res, next) => {
       return errorResponse(res, 404, 'User not found');
     }
     return successResponse(res, 200, 'User deleted successfully (soft delete)', null);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const blockUser = async (req, res, next) => {
+  try {
+    const user = await userService.blockUser(req.params.id);
+    if (!user) {
+      return errorResponse(res, 404, 'User not found');
+    }
+    return successResponse(res, 200, 'User blocked successfully', null);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unblockUser = async (req, res, next) => {
+  try {
+    const user = await userService.unblockUser(req.params.id);
+    if (!user) {
+      return errorResponse(res, 404, 'User not found');
+    }
+    return successResponse(res, 200, 'User unblocked successfully', null);
   } catch (error) {
     next(error);
   }

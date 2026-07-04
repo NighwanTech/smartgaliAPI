@@ -54,6 +54,10 @@ const BusinessProfile = sequelize.define('BusinessProfile', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  is_featured: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
   ...commonFields
 }, {
   timestamps: false,

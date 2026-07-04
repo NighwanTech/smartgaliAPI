@@ -35,7 +35,6 @@ import chatParticipantRoutes from '../modules/chat_participant/chat_participant.
 import messageRoutes from '../modules/message/message.routes.js';
 import reportRoutes from '../modules/report/report.routes.js';
 import notificationRoutes from '../modules/notification/notification.routes.js';
-
 const router = express.Router();
 
 // Mount example module routes

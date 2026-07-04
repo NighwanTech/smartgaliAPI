@@ -1,9 +1,14 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 import * as businessCategoryService from './business_category.service.js';
 
 export const createCategory = async (req, res, next) => {
   try {
-    const category = await businessCategoryService.createCategory(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.icon = getImageUrl(req, req.file, 'category');
+    }
+    const category = await businessCategoryService.createCategory(data);
     return successResponse(res, 201, 'Business category created successfully', category);
   } catch (error) {
     next(error);
@@ -33,7 +38,11 @@ export const getCategoryById = async (req, res, next) => {
 
 export const updateCategory = async (req, res, next) => {
   try {
-    const category = await businessCategoryService.updateCategory(req.params.id, req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.icon = getImageUrl(req, req.file, 'category');
+    }
+    const category = await businessCategoryService.updateCategory(req.params.id, data);
     if (!category) {
       return errorResponse(res, 404, 'Business category not found');
     }
