@@ -1,9 +1,14 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
 import * as eventService from './event.service.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 
 export const createEvent = async (req, res, next) => {
   try {
-    const event = await eventService.createEvent(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.cover_image = getImageUrl(req, 'event', req.file.filename);
+    }
+    const event = await eventService.createEvent(data);
     return successResponse(res, 201, 'Event created successfully', event);
   } catch (error) {
     next(error);
@@ -33,7 +38,11 @@ export const getEventById = async (req, res, next) => {
 
 export const updateEvent = async (req, res, next) => {
   try {
-    const event = await eventService.updateEvent(req.params.id, req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      data.cover_image = getImageUrl(req, 'event', req.file.filename);
+    }
+    const event = await eventService.updateEvent(req.params.id, data);
     if (!event) {
       return errorResponse(res, 404, 'Event not found');
     }

@@ -3,6 +3,7 @@ import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
 import Community from '../community/community.model.js';
+import EventCategory from '../event_category/event_category.model.js';
 
 const Event = sequelize.define('Event', {
   id: {
@@ -16,6 +17,14 @@ const Event = sequelize.define('Event', {
     references: {
       model: Community,
       key: 'communityId',
+    }
+  },
+  category_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: EventCategory,
+      key: 'id',
     }
   },
   title: {
@@ -71,5 +80,6 @@ const Event = sequelize.define('Event', {
 // Setup relationships
 Event.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 Event.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
+Event.belongsTo(EventCategory, { foreignKey: 'category_id', as: 'category' });
 
 export default Event;

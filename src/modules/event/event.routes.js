@@ -1,5 +1,6 @@
 import express from 'express';
 import * as eventController from './event.controller.js';
+import { uploadImage } from '../../utils/fileUpload.js';
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ const router = express.Router();
  *       201:
  *         description: Event created successfully
  */
-router.post('/', eventController.createEvent);
+router.post('/', uploadImage('event').single('cover_image'), eventController.createEvent);
 
 /**
  * @swagger
@@ -155,7 +156,7 @@ router.get('/:id', eventController.getEventById);
  *       404:
  *         description: Event not found
  */
-router.put('/:id', eventController.updateEvent);
+router.put('/:id', uploadImage('event').single('cover_image'), eventController.updateEvent);
 
 /**
  * @swagger

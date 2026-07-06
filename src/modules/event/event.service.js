@@ -1,6 +1,7 @@
 import Event from './event.model.js';
 import User from '../user/user.model.js';
 import Community from '../community/community.model.js';
+import EventCategory from '../event_category/event_category.model.js';
 
 export const createEvent = async (eventData) => {
   return await Event.create(eventData);
@@ -11,7 +12,8 @@ export const getAllEvents = async () => {
     where: { is_deleted: false },
     include: [
       { model: User, as: 'creator', attributes: ['userId', 'userName', 'profile_image'] },
-      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] }
+      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] },
+      { model: EventCategory, as: 'category', attributes: ['id', 'name', 'icon'] }
     ]
   });
 };
@@ -21,7 +23,8 @@ export const getEventById = async (id) => {
     where: { id, is_deleted: false },
     include: [
       { model: User, as: 'creator', attributes: ['userId', 'userName', 'profile_image'] },
-      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] }
+      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] },
+      { model: EventCategory, as: 'category', attributes: ['id', 'name', 'icon'] }
     ]
   });
 };
