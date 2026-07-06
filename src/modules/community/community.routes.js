@@ -98,6 +98,18 @@ router.get('/suggested', communityController.getSuggestedCommunities);
 
 /**
  * @swagger
+ * /api/v1/community/status/requests:
+ *   get:
+ *     summary: Get pending community requests
+ *     tags: [Communities]
+ *     responses:
+ *       200:
+ *         description: A list of pending communities
+ */
+router.get('/status/requests', communityController.getPendingCommunities);
+
+/**
+ * @swagger
  * /api/v1/community/{id}:
  *   get:
  *     summary: Get a community by ID
@@ -296,5 +308,41 @@ router.get('/:id/members', communityController.getCommunityMembers);
  *         description: Invitation sent successfully
  */
 router.post('/:id/invite', communityController.inviteUser);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/approve:
+ *   put:
+ *     summary: Approve a community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Community approved successfully
+ */
+router.put('/:id/approve', communityController.approveCommunity);
+
+/**
+ * @swagger
+ * /api/v1/community/{id}/reject:
+ *   put:
+ *     summary: Reject a community
+ *     tags: [Communities]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Community rejected successfully
+ */
+router.put('/:id/reject', communityController.rejectCommunity);
 
 export default router;

@@ -17,7 +17,11 @@ const Role = sequelize.define('Role', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  ...commonFields
+  ...commonFields,
+  created_by: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+  }
 }, {
   timestamps: false,
   tableName: 'roles',

@@ -44,3 +44,20 @@ export const bulkSoftDeleteProfiles = async (ids, deletedRemarks, updated_by) =>
     { where: { id: ids, is_deleted: false } }
   );
 };
+
+export const getPendingVerifications = async () => {
+  return await ServiceProviderProfile.findAll({
+    where: { is_deleted: false, is_verified: false },
+    include: [
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'phone'] },
+      { model: ServiceCategory, as: 'category', attributes: ['serviceCategoryId', 'serviceCategoryName'] }
+    ]
+  });
+};
+
+export const verifyProfile = async (id, updated_by) => {
+  const profile = await ServiceProviderProfile.findOne({ where: { id, is_deleted: false } });
+  if (!profile) return null;
+  return await profile.update({ is_verified: true, updated_by, updatedAt: new Date() });
+};
+

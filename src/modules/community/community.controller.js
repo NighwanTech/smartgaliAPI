@@ -141,3 +141,39 @@ export const inviteUser = async (req, res, next) => {
     next(error);
   }
 };
+
+// Get pending communities
+export const getPendingCommunities = async (req, res, next) => {
+  try {
+    const communities = await communityService.getPendingCommunities();
+    return successResponse(res, 200, 'Pending communities fetched successfully', communities);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Approve community
+export const approveCommunity = async (req, res, next) => {
+  try {
+    const community = await communityService.approveCommunity(req.params.id);
+    if (!community) {
+      return errorResponse(res, 404, 'Community not found');
+    }
+    return successResponse(res, 200, 'Community approved successfully', community);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reject community
+export const rejectCommunity = async (req, res, next) => {
+  try {
+    const community = await communityService.rejectCommunity(req.params.id);
+    if (!community) {
+      return errorResponse(res, 404, 'Community not found');
+    }
+    return successResponse(res, 200, 'Community rejected successfully', community);
+  } catch (error) {
+    next(error);
+  }
+};

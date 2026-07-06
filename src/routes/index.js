@@ -21,6 +21,9 @@ import societyMemberRoutes from '../modules/society_member/society_member.routes
 import societyFacilityRoutes from '../modules/society_facility/society_facility.routes.js';
 import societyAnnouncementRoutes from '../modules/society_announcement/society_announcement.routes.js';
 import societyComplaintRoutes from '../modules/society_complaint/society_complaint.routes.js';
+import societyVisitorRoutes from '../modules/society_visitor/society_visitor.routes.js';
+import societyParkingRoutes from '../modules/society_parking/society_parking.routes.js';
+import societyPollRoutes from '../modules/society_poll/society_poll.routes.js';
 import mediaFileRoutes from '../modules/media_file/media_file.routes.js';
 import postRoutes from '../modules/post/post.routes.js';
 import postLikeRoutes from '../modules/post_like/post_like.routes.js';
@@ -35,6 +38,7 @@ import chatParticipantRoutes from '../modules/chat_participant/chat_participant.
 import messageRoutes from '../modules/message/message.routes.js';
 import reportRoutes from '../modules/report/report.routes.js';
 import notificationRoutes from '../modules/notification/notification.routes.js';
+import adminDashboardRoutes from '../modules/admin_dashboard/admin_dashboard.routes.js';
 const router = express.Router();
 
 // Mount example module routes
@@ -60,6 +64,9 @@ router.use('/society-member', societyMemberRoutes);
 router.use('/society-facility', societyFacilityRoutes);
 router.use('/society-announcement', societyAnnouncementRoutes);
 router.use('/society-complaint', societyComplaintRoutes);
+router.use('/society-visitor', societyVisitorRoutes);
+router.use('/society-parking', societyParkingRoutes);
+router.use('/society-poll', societyPollRoutes);
 router.use('/media-file', mediaFileRoutes);
 router.use('/post', postRoutes);
 router.use('/post-like', postLikeRoutes);
@@ -74,6 +81,7 @@ router.use('/chat-participant', chatParticipantRoutes);
 router.use('/message', messageRoutes);
 router.use('/report', reportRoutes);
 router.use('/notification', notificationRoutes);
+router.use('/admin-dashboard', adminDashboardRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {

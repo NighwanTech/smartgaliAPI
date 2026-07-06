@@ -80,6 +80,30 @@ router.get('/', userController.getAllUsers);
 
 /**
  * @swagger
+ * /api/v1/user/status/pending-verification:
+ *   get:
+ *     summary: Get users pending verification
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: A list of pending users
+ */
+router.get('/status/pending-verification', userController.getPendingUsers);
+
+/**
+ * @swagger
+ * /api/v1/user/status/blocked:
+ *   get:
+ *     summary: Get blocked users
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: A list of blocked users
+ */
+router.get('/status/blocked', userController.getBlockedUsersList);
+
+/**
+ * @swagger
  * /api/v1/user/{id}:
  *   get:
  *     summary: Get a user by ID
@@ -215,5 +239,25 @@ router.put('/:id/block', userController.blockUser);
  *         description: User unblocked successfully
  */
 router.put('/:id/unblock', userController.unblockUser);
+
+
+
+/**
+ * @swagger
+ * /api/v1/user/{id}/verify:
+ *   put:
+ *     summary: Verify a user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User verified successfully
+ */
+router.put('/:id/verify', userController.verifyUser);
 
 export default router;

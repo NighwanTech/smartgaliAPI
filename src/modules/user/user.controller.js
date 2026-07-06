@@ -136,3 +136,44 @@ export const unblockUser = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getPendingUsers = async (req, res, next) => {
+  try {
+    const users = await userService.getPendingVerifications();
+    const usersResponse = users.map(user => {
+      const userJson = user.toJSON();
+      delete userJson.password;
+      return userJson;
+    });
+    return successResponse(res, 200, 'Pending users fetched successfully', usersResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBlockedUsersList = async (req, res, next) => {
+  try {
+    const users = await userService.getBlockedUsers();
+    const usersResponse = users.map(user => {
+      const userJson = user.toJSON();
+      delete userJson.password;
+      return userJson;
+    });
+    return successResponse(res, 200, 'Blocked users fetched successfully', usersResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyUser = async (req, res, next) => {
+  try {
+    const user = await userService.verifyUser(req.params.id);
+    if (!user) {
+      return errorResponse(res, 404, 'User not found');
+    }
+    return successResponse(res, 200, 'User verified successfully', null);
+  } catch (error) {
+    next(error);
+  }
+};
+

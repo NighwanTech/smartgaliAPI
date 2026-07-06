@@ -57,6 +57,20 @@ router.get('/', serviceProviderProfileController.getAllProfiles);
 
 /**
  * @swagger
+ * /api/v1/service-provider-profile/status/pending-verification:
+ *   get:
+ *     summary: Get all pending service provider profiles
+ *     tags: [ServiceProviderProfiles]
+ *     responses:
+ *       200:
+ *         description: A list of pending service provider profiles
+ *       500:
+ *         description: Server error
+ */
+router.get('/status/pending-verification', serviceProviderProfileController.getPendingVerifications);
+
+/**
+ * @swagger
  * /api/v1/service-provider-profile/bulk-delete:
  *   post:
  *     summary: Bulk soft delete service provider profiles
@@ -142,6 +156,26 @@ router.get('/:id', serviceProviderProfileController.getProfileById);
  *         description: Service provider profile not found
  */
 router.put('/:id', serviceProviderProfileController.updateProfile);
+
+/**
+ * @swagger
+ * /api/v1/service-provider-profile/{id}/verify:
+ *   put:
+ *     summary: Verify a service provider profile
+ *     tags: [ServiceProviderProfiles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Service provider profile verified successfully
+ *       404:
+ *         description: Service provider profile not found
+ */
+router.put('/:id/verify', serviceProviderProfileController.verifyProfile);
 
 /**
  * @swagger

@@ -68,3 +68,25 @@ export const bulkDeleteProfiles = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getPendingVerifications = async (req, res, next) => {
+  try {
+    const profiles = await serviceProviderProfileService.getPendingVerifications();
+    return successResponse(res, 200, 'Pending service verifications fetched successfully', profiles);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyProfile = async (req, res, next) => {
+  try {
+    const updated_by = req.body.updated_by || 'admin';
+    const profile = await serviceProviderProfileService.verifyProfile(req.params.id, updated_by);
+    if (!profile) {
+      return errorResponse(res, 404, 'Service provider profile not found');
+    }
+    return successResponse(res, 200, 'Service provider profile verified successfully', profile);
+  } catch (error) {
+    next(error);
+  }
+};

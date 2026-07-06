@@ -102,3 +102,26 @@ export const inviteUser = async (communityId, inviterId, inviteeId) => {
   if (existingMember) return existingMember; // Already a member or pending
   return await CommunityMember.create({ community_id: communityId, user_id: inviteeId, role: 'member', status: 'pending' });
 };
+
+// 7. Community Requests
+export const getPendingCommunities = async () => {
+  return await Community.findAll({
+    where: { status: 'pending', is_deleted: false },
+    include: [
+      { model: CommunityCategory, as: 'category' },
+      { model: User, as: 'creator' }
+    ]
+  });
+};
+
+export const approveCommunity = async (communityId) => {
+  const community = await Community.findOne({ where: { communityId, is_deleted: false } });
+  if (!community) return null;
+  return await community.update({ status: 'active', updatedAt: new Date() });
+};
+
+export const rejectCommunity = async (communityId) => {
+  const community = await Community.findOne({ where: { communityId, is_deleted: false } });
+  if (!community) return null;
+  return await community.update({ status: 'inactive', updatedAt: new Date() });
+};
