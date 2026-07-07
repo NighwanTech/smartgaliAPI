@@ -68,3 +68,49 @@ export const bulkDeleteNotifications = async (req, res, next) => {
     next(error);
   }
 };
+
+export const sendBroadcast = async (req, res, next) => {
+  try {
+    const { title, message, created_by } = req.body;
+    if (!title || !message) {
+      return errorResponse(res, 400, 'Title and message are required for broadcast');
+    }
+    const count = await notificationService.sendBroadcastNotification(title, message, created_by);
+    return successResponse(res, 200, `Broadcast sent to ${count} users successfully`, { count });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const sendEmail = async (req, res, next) => {
+  try {
+    const { user_id, subject, body, created_by } = req.body;
+    if (!user_id || !subject || !body) {
+      return errorResponse(res, 400, 'User ID, subject, and body are required to send an email');
+    }
+    
+    // In a real scenario, Nodemailer or SendGrid integration goes here.
+    // For now, we mock success and log to database.
+    const emailData = {
+      user_id,
+      subject,
+      body,
+      status: 'sent',
+      created_by: created_by || 1
+    };
+    const email = await notificationService.createEmailNotification(emailData);
+    
+    return successResponse(res, 201, 'Email sent and logged successfully', email);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllEmails = async (req, res, next) => {
+  try {
+    const emails = await notificationService.getAllEmailNotifications();
+    return successResponse(res, 200, 'Email logs fetched successfully', emails);
+  } catch (error) {
+    next(error);
+  }
+};

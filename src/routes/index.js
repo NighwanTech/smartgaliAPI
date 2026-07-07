@@ -40,6 +40,10 @@ import messageRoutes from '../modules/message/message.routes.js';
 import reportRoutes from '../modules/report/report.routes.js';
 import notificationRoutes from '../modules/notification/notification.routes.js';
 import adminDashboardRoutes from '../modules/admin_dashboard/admin_dashboard.routes.js';
+import adBannerRoutes from '../modules/ad_banner/ad_banner.routes.js';
+import adCampaignRoutes from '../modules/ad_campaign/ad_campaign.routes.js';
+import adSponsoredRoutes from '../modules/ad_sponsored/ad_sponsored.routes.js';
+import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 const router = express.Router();
 
 // Mount example module routes
@@ -84,6 +88,10 @@ router.use('/message', messageRoutes);
 router.use('/report', reportRoutes);
 router.use('/notification', notificationRoutes);
 router.use('/admin-dashboard', adminDashboardRoutes);
+router.use('/ad-banner', adBannerRoutes);
+router.use('/ad-campaign', adCampaignRoutes);
+router.use('/ad-sponsored', adSponsoredRoutes);
+router.use('/analytics', analyticsRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {

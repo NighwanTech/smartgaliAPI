@@ -61,6 +61,77 @@ router.get('/', notificationController.getAllNotifications);
 
 /**
  * @swagger
+ * /api/v1/notification/broadcast:
+ *   post:
+ *     summary: Broadcast a notification to all active users
+ *     tags: [Notifications]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - message
+ *             properties:
+ *               title:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               created_by:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Broadcast sent successfully
+ */
+router.post('/broadcast', notificationController.sendBroadcast);
+
+/**
+ * @swagger
+ * /api/v1/notification/email:
+ *   post:
+ *     summary: Send and log an email notification
+ *     tags: [Notifications]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - subject
+ *               - body
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               subject:
+ *                 type: string
+ *               body:
+ *                 type: string
+ *               created_by:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Email sent and logged successfully
+ */
+router.post('/email', notificationController.sendEmail);
+
+/**
+ * @swagger
+ * /api/v1/notification/email:
+ *   get:
+ *     summary: Get all email notification logs
+ *     tags: [Notifications]
+ *     responses:
+ *       200:
+ *         description: A list of email logs
+ */
+router.get('/email', notificationController.getAllEmails);
+
+/**
+ * @swagger
  * /api/v1/notification/bulk-delete:
  *   post:
  *     summary: Bulk soft delete notifications
@@ -168,5 +239,7 @@ router.put('/:id', notificationController.updateNotification);
  *         description: Notification not found
  */
 router.delete('/:id', notificationController.deleteNotification);
+
+
 
 export default router;

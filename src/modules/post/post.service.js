@@ -11,7 +11,7 @@ export const getAllPosts = async () => {
     where: { is_deleted: false },
     include: [
       { model: User, as: 'author', attributes: ['userId', 'userName', 'profile_image'] },
-      { model: Community, as: 'community', attributes: ['id', 'name'] }
+      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] }
     ]
   });
 };
@@ -21,7 +21,7 @@ export const getPostById = async (id) => {
     where: { id, is_deleted: false },
     include: [
       { model: User, as: 'author', attributes: ['userId', 'userName', 'profile_image'] },
-      { model: Community, as: 'community', attributes: ['id', 'name'] }
+      { model: Community, as: 'community', attributes: ['communityId', 'communityName'] }
     ]
   });
 };

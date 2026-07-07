@@ -10,11 +10,11 @@ export const commonFields = {
     defaultValue: false,
   },
   created_by: {
-    type: DataTypes.STRING,
+    type: DataTypes.BIGINT,
     allowNull: true,
   },
   updated_by: {
-    type: DataTypes.STRING,
+    type: DataTypes.BIGINT,
     allowNull: true,
   },
   remark: {
