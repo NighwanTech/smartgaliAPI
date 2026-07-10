@@ -44,6 +44,11 @@ import adBannerRoutes from '../modules/ad_banner/ad_banner.routes.js';
 import adCampaignRoutes from '../modules/ad_campaign/ad_campaign.routes.js';
 import adSponsoredRoutes from '../modules/ad_sponsored/ad_sponsored.routes.js';
 import analyticsRoutes from '../modules/analytics/analytics.routes.js';
+import cmsRoutes from '../modules/cms/cms.routes.js';
+import settingRoutes from '../modules/setting/setting.routes.js';
+import ticketRoutes from '../modules/ticket/ticket.routes.js';
+import feedbackRoutes from '../modules/feedback/feedback.routes.js';
+import logRoutes from '../modules/system_log/system_log.routes.js';
 const router = express.Router();
 
 // Mount example module routes
@@ -92,6 +97,11 @@ router.use('/ad-banner', adBannerRoutes);
 router.use('/ad-campaign', adCampaignRoutes);
 router.use('/ad-sponsored', adSponsoredRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/cms', cmsRoutes);
+router.use('/setting', settingRoutes);
+router.use('/ticket', ticketRoutes);
+router.use('/feedback', feedbackRoutes);
+router.use('/log', logRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {
