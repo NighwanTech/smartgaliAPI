@@ -5,6 +5,18 @@ import { getImageUrl } from '../../utils/fileUpload.js';
 export const createProfile = async (req, res, next) => {
   try {
     const data = { ...req.body };
+    const userId = req.user?.userId || data.user_id || data.userId;
+    data.user_id = userId;
+    data.created_by = userId;
+    if (data.name !== undefined && data.business_name === undefined) {
+      data.business_name = data.name;
+    }
+    if (data.contactNumber !== undefined && data.phone === undefined) {
+      data.phone = data.contactNumber;
+    }
+    if (data.category !== undefined && data.serviceCategory === undefined) {
+      data.serviceCategory = data.category;
+    }
     if (req.file) {
       data.logo = getImageUrl(req, req.file, 'business');
     }
@@ -36,16 +48,76 @@ export const getProfileById = async (req, res, next) => {
   }
 };
 
-export const updateProfile = async (req, res, next) => {
+export const getMyProfile = async (req, res, next) => {
   try {
-    const data = { ...req.body };
-    if (req.file) {
-      data.logo = getImageUrl(req, req.file, 'business');
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) {
+      return errorResponse(res, 401, 'User ID missing in auth token');
     }
-    const profile = await businessProfileService.updateProfile(req.params.id, data);
+    const profile = await businessProfileService.getProfileByUserId(userId);
     if (!profile) {
       return errorResponse(res, 404, 'Business profile not found');
     }
+    const { rating, reviewCount } = await businessProfileService.getReviewStats(profile.id);
+    const formatted = {
+      id: Number(profile.id),
+      userId: Number(profile.user_id),
+      businessName: profile.business_name,
+      categoryId: profile.category_id ? Number(profile.category_id) : null,
+      categoryName: profile.category?.name || profile.serviceCategory || 'Local Business',
+      description: profile.description || null,
+      address: profile.address || null,
+      phone: profile.user?.phone || profile.phone || null,
+      email: profile.user?.email || profile.email || null,
+      operatingHours: profile.operatingHours || null,
+      bannerUrl: profile.bannerUrl || profile.logo || null,
+      logoUrl: profile.logo || null,
+      isVerified: Boolean(profile.is_verified),
+      rating: rating,
+      reviewCount: reviewCount,
+      isOpen: profile.is_active !== false,
+    };
+    return successResponse(res, 200, 'Business profile fetched successfully', formatted);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDashboardStats = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const stats = await businessProfileService.getDashboardStats(userId);
+    if (!stats) {
+      return errorResponse(res, 404, 'Business profile not found for user');
+    }
+    return successResponse(res, 200, 'Business dashboard stats fetched successfully', stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const data = { ...req.body };
+    // Map Flutter 'name' -> DB 'business_name'
+    if (data.name !== undefined && data.business_name === undefined) {
+      data.business_name = data.name;
+    }
+    if (req.file) {
+      data.logo = getImageUrl(req, req.file, 'business');
+    }
+
+    const existingProfile = await businessProfileService.getProfileById(req.params.id);
+    if (!existingProfile) {
+      return errorResponse(res, 404, 'Business profile not found');
+    }
+
+    // Authenticated user ownership check
+    if (req.user && Number(existingProfile.user_id) !== Number(req.user.userId)) {
+      return errorResponse(res, 403, 'Forbidden: You do not own this business profile');
+    }
+
+    const profile = await businessProfileService.updateProfile(req.params.id, data);
     return successResponse(res, 200, 'Business profile updated successfully', profile);
   } catch (error) {
     next(error);
@@ -54,11 +126,17 @@ export const updateProfile = async (req, res, next) => {
 
 export const deleteProfile = async (req, res, next) => {
   try {
-    const { deletedRemarks, updated_by } = req.body;
-    const profile = await businessProfileService.softDeleteProfile(req.params.id, deletedRemarks, updated_by);
-    if (!profile) {
+    const existingProfile = await businessProfileService.getProfileById(req.params.id);
+    if (!existingProfile) {
       return errorResponse(res, 404, 'Business profile not found');
     }
+
+    if (req.user && Number(existingProfile.user_id) !== Number(req.user.userId)) {
+      return errorResponse(res, 403, 'Forbidden: You do not own this business profile');
+    }
+
+    const { deletedRemarks } = req.body;
+    const profile = await businessProfileService.softDeleteProfile(req.params.id, deletedRemarks, req.user?.userId);
     return successResponse(res, 200, 'Business profile deleted successfully (soft delete)', null);
   } catch (error) {
     next(error);

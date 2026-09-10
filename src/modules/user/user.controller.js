@@ -34,14 +34,7 @@ export const createUser = async (req, res, next) => {
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const roleName = req.query.roleName;
-    let users;
-    
-    if (roleName) {
-      users = await userService.getUsersByRole(roleName);
-    } else {
-      users = await userService.getAllUsers();
-    }
+    const users = await userService.getAllUsers(req.query);
     
     // Remove passwords from response
     const usersResponse = users.map(user => {

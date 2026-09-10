@@ -90,3 +90,13 @@ export const verifyProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getEarnings = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const earnings = await serviceProviderProfileService.getEarnings(userId);
+    return successResponse(res, 200, 'Provider earnings calculated successfully', earnings);
+  } catch (error) {
+    next(error);
+  }
+};

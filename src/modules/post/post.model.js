@@ -4,6 +4,23 @@ import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
 import Community from '../community/community.model.js';
 
+// DEF-006: Destructure commonFields, omitting all attributes that do NOT exist
+// in the live MySQL `posts` table (verified via describeTable on srv1100.hstgr.io).
+//
+// Confirmed PRESENT in live posts:   is_active, is_deleted, created_at  ✅
+// Confirmed MISSING from live posts: created_by, updated_by, remark,
+//                                    updatedAt, deletedRemarks           ❌
+//
+// commonFields is NOT modified globally — this exclusion is local to post.model.js.
+const {
+  created_by: _cb,
+  updated_by: _ub,
+  remark: _rm,
+  updatedAt: _ua,
+  deletedRemarks: _dr,
+  ...postCommonFields
+} = commonFields;
+
 const Post = sequelize.define('Post', {
   id: {
     type: DataTypes.BIGINT,
@@ -40,6 +57,7 @@ const Post = sequelize.define('Post', {
   },
   location: {
     type: DataTypes.TEXT,
+    field: 'location_name',
     allowNull: true,
   },
   latitude: {
@@ -54,7 +72,9 @@ const Post = sequelize.define('Post', {
     type: DataTypes.ENUM('public', 'private', 'friends', 'community'),
     defaultValue: 'public',
   },
-  ...commonFields
+  // Only commonFields that physically exist in the live posts table:
+  // is_active, is_deleted, created_at
+  ...postCommonFields,
 }, {
   timestamps: false,
   tableName: 'posts',

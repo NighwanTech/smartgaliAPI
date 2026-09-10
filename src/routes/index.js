@@ -1,4 +1,5 @@
 import express from 'express';
+import authRoutes from '../modules/auth/auth.routes.js';
 import exampleRoutes from '../modules/example/example.routes.js';
 import roleRoutes from '../modules/role/role.routes.js';
 import userRoutes from '../modules/user/user.routes.js';
@@ -51,25 +52,33 @@ import feedbackRoutes from '../modules/feedback/feedback.routes.js';
 import logRoutes from '../modules/system_log/system_log.routes.js';
 const router = express.Router();
 
+// Mount auth module routes
+router.use('/auth', authRoutes);
+
 // Mount example module routes
 router.use('/example', exampleRoutes);
 router.use('/role', roleRoutes);
 router.use('/user', userRoutes);
+router.use('/users', userRoutes); // Dual-route alias for Flutter compatibility
 router.use('/user-profile', userProfileRoutes);
 router.use('/community-category', communityCategoryRoutes);
 router.use('/community', communityRoutes);
+router.use('/communities', communityRoutes); // Dual-route alias for Flutter compatibility
 router.use('/community-member', communityMemberRoutes);
 router.use('/business-category', businessCategoryRoutes);
 router.use('/business-profile', businessProfileRoutes);
+router.use('/businesses', businessProfileRoutes); // Dual-route alias for Flutter compatibility
 router.use('/business-image', businessImageRoutes);
 router.use('/business-offer', businessOfferRoutes);
 router.use('/business-review', businessReviewRoutes);
 router.use('/service-category', serviceCategoryRoutes);
 router.use('/service-provider-profile', serviceProviderProfileRoutes);
 router.use('/service-listing', serviceListingRoutes);
+router.use('/services', serviceListingRoutes); // Dual-route alias for Flutter compatibility
 router.use('/service-booking', serviceBookingRoutes);
 router.use('/service-review', serviceReviewRoutes);
 router.use('/society-profile', societyProfileRoutes);
+router.use('/societies', societyProfileRoutes); // Dual-route alias for Flutter compatibility
 router.use('/society-member', societyMemberRoutes);
 router.use('/society-facility', societyFacilityRoutes);
 router.use('/society-announcement', societyAnnouncementRoutes);
@@ -79,11 +88,13 @@ router.use('/society-parking', societyParkingRoutes);
 router.use('/society-poll', societyPollRoutes);
 router.use('/media-file', mediaFileRoutes);
 router.use('/post', postRoutes);
+router.use('/posts', postRoutes); // Dual-route alias for Flutter compatibility
 router.use('/post-like', postLikeRoutes);
 router.use('/post-comment', postCommentRoutes);
 router.use('/post-share', postShareRoutes);
 router.use('/saved-post', savedPostRoutes);
 router.use('/event', eventRoutes);
+router.use('/events', eventRoutes); // Dual-route alias for Flutter compatibility
 router.use('/event-category', eventCategoryRoutes);
 router.use('/event-participant', eventParticipantRoutes);
 router.use('/follow', followRoutes);

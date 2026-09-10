@@ -72,7 +72,37 @@ export const getAllEmailNotifications = async () => {
   return await EmailNotification.findAll({
     where: { is_deleted: false },
     include: [
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };
+
+export const getUserNotifications = async (userId) => {
+  return await Notification.findAll({
+    where: { user_id: userId, is_deleted: false },
+    order: [['created_at', 'DESC']]
+  });
+};
+
+export const getUnreadCount = async (userId) => {
+  return await Notification.count({
+    where: { user_id: userId, is_read: false, is_deleted: false }
+  });
+};
+
+export const markAllAsRead = async (userId) => {
+  const [affectedCount] = await Notification.update(
+    { is_read: true, updatedAt: new Date() },
+    { where: { user_id: userId, is_read: false, is_deleted: false } }
+  );
+  return affectedCount;
+};
+
+export const markAsRead = async (userId, notificationId) => {
+  const notification = await Notification.findOne({
+    where: { id: notificationId, user_id: userId, is_deleted: false }
+  });
+  if (!notification) return null;
+  return await notification.update({ is_read: true, updatedAt: new Date() });
+};
+

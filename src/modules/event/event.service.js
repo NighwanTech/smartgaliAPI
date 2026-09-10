@@ -1,5 +1,6 @@
 import Event from './event.model.js';
 import User from '../user/user.model.js';
+import UserProfile from '../userProfile/userProfile.model.js';
 import Community from '../community/community.model.js';
 import EventCategory from '../event_category/event_category.model.js';
 
@@ -11,7 +12,12 @@ export const getAllEvents = async () => {
   return await Event.findAll({
     where: { is_deleted: false },
     include: [
-      { model: User, as: 'creator', attributes: ['userId', 'userName', 'profile_image'] },
+      {
+        model: User,
+        as: 'creator',
+        attributes: ['userId', 'userName'],
+        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl'] }]
+      },
       { model: Community, as: 'community', attributes: ['communityId', 'communityName'] },
       { model: EventCategory, as: 'category', attributes: ['id', 'name', 'icon'] }
     ]
@@ -22,7 +28,12 @@ export const getEventById = async (id) => {
   return await Event.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: User, as: 'creator', attributes: ['userId', 'userName', 'profile_image'] },
+      {
+        model: User,
+        as: 'creator',
+        attributes: ['userId', 'userName'],
+        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl'] }]
+      },
       { model: Community, as: 'community', attributes: ['communityId', 'communityName'] },
       { model: EventCategory, as: 'category', attributes: ['id', 'name', 'icon'] }
     ]

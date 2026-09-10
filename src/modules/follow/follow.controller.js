@@ -68,3 +68,55 @@ export const bulkDeleteFollows = async (req, res, next) => {
     next(error);
   }
 };
+
+export const followUser = async (req, res, next) => {
+  try {
+    const followerId = req.user.userId;
+    const targetUserId = req.body.targetUserId || req.body.target_user_id || req.body.userId;
+    if (!targetUserId) {
+      return errorResponse(res, 400, 'targetUserId is required');
+    }
+    const result = await followService.followUser(followerId, targetUserId);
+    return successResponse(res, 201, 'User followed successfully', result);
+  } catch (error) {
+    return errorResponse(res, 400, error.message);
+  }
+};
+
+export const unfollowUser = async (req, res, next) => {
+  try {
+    const followerId = req.user.userId;
+    const targetUserId = req.params.targetUserId || req.params.id;
+    if (!targetUserId) {
+      return errorResponse(res, 400, 'targetUserId parameter is required');
+    }
+    const success = await followService.unfollowUser(followerId, targetUserId);
+    if (!success) {
+      return errorResponse(res, 404, 'Follow relationship not found');
+    }
+    return successResponse(res, 200, 'User unfollowed successfully', true);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getFollowers = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const followers = await followService.getFollowers(userId);
+    return successResponse(res, 200, 'Followers fetched successfully', { followers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getFollowing = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const following = await followService.getFollowing(userId);
+    return successResponse(res, 200, 'Following list fetched successfully', { following });
+  } catch (error) {
+    next(error);
+  }
+};
+

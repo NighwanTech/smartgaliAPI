@@ -2,14 +2,35 @@ import User from './user.model.js';
 import Role from '../role/role.model.js';
 import UserProfile from '../userProfile/userProfile.model.js';
 
+import { Op } from 'sequelize';
+
 export const createUser = async (userData) => {
   return await User.create(userData);
 };
 
-export const getAllUsers = async () => {
+export const getAllUsers = async (query = {}) => {
+  const whereClause = { is_deleted: false };
+  const searchTerm = query.search || query.query || query.q;
+  if (searchTerm && String(searchTerm).trim() !== '') {
+    const term = `%${String(searchTerm).trim()}%`;
+    whereClause[Op.or] = [
+      { userName: { [Op.like]: term } },
+      { email: { [Op.like]: term } },
+      { phone: { [Op.like]: term } }
+    ];
+  }
+
+  const roleInclude = { model: Role, as: 'role' };
+  if (query.roleName) {
+    roleInclude.where = { roleName: query.roleName };
+  }
+
   return await User.findAll({
-    where: { is_deleted: false },
-    include: [{ model: Role, as: 'role' }]
+    where: whereClause,
+    include: [
+      roleInclude,
+      { model: UserProfile, as: 'profile' }
+    ]
   });
 };
 

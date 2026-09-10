@@ -23,6 +23,15 @@ export const getOfferById = async (id) => {
   });
 };
 
+export const getOffersByBusinessId = async (businessId) => {
+  return await BusinessOffer.findAll({
+    where: { business_id: businessId, is_deleted: false },
+    include: [
+      { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] }
+    ]
+  });
+};
+
 export const updateOffer = async (id, updateData) => {
   const offer = await BusinessOffer.findOne({ where: { id, is_deleted: false } });
   if (!offer) return null;

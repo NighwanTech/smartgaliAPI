@@ -1,8 +1,15 @@
 import express from 'express';
 import * as userController from './user.controller.js';
+import * as followController from '../follow/follow.controller.js';
 import { uploadImage } from '../../utils/fileUpload.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+router.post('/follow', authenticate, followController.followUser);
+router.delete('/unfollow/:targetUserId', authenticate, followController.unfollowUser);
+router.get('/followers', authenticate, followController.getFollowers);
+router.get('/following', authenticate, followController.getFollowing);
 
 /**
  * @swagger

@@ -17,24 +17,24 @@ const UserProfile = sequelize.define('UserProfile', {
       key: 'userId',
     }
   },
-  dob: {
-    type: DataTypes.DATEONLY,
+  fullName: {
+    type: DataTypes.STRING,
     allowNull: true,
   },
-  gender: {
-    type: DataTypes.ENUM('male', 'female', 'other'),
+  avatarUrl: {
+    type: DataTypes.STRING,
     allowNull: true,
+  },
+  locationName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  isProfileComplete: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   bio: {
     type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  occupation: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  website: {
-    type: DataTypes.STRING,
     allowNull: true,
   },
   ...commonFields

@@ -64,6 +64,25 @@ router.get('/', businessOfferController.getAllOffers);
 
 /**
  * @swagger
+ * /api/v1/business-offer/business/{businessId}:
+ *   get:
+ *     summary: Get active business offers by Business ID
+ *     tags: [BusinessOffers]
+ *     parameters:
+ *       - in: path
+ *         name: businessId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: A list of business offers for the business
+ready
+ */
+router.get('/business/:businessId', businessOfferController.getOffersByBusinessId);
+
+/**
+ * @swagger
  * /api/v1/business-offer/{id}:
  *   get:
  *     summary: Get a business offer by ID

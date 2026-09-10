@@ -11,6 +11,7 @@ const User = sequelize.define('User', {
   },
   role_id: {
     type: DataTypes.INTEGER,
+    field: 'user_role',
     allowNull: true,
     references: {
       model: Role,
@@ -33,14 +34,6 @@ const User = sequelize.define('User', {
   password: {
     type: DataTypes.STRING,
     allowNull: false,
-  },
-  profile_image: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  address: {
-    type: DataTypes.TEXT,
-    allowNull: true,
   },
   latitude: {
     type: DataTypes.DECIMAL(10, 8),

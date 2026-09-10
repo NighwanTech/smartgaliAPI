@@ -114,3 +114,67 @@ export const getAllEmails = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getMyNotifications = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const notifications = await notificationService.getUserNotifications(userId);
+    const unreadCount = await notificationService.getUnreadCount(userId);
+    
+    const items = (notifications || []).map(n => ({
+      id: n.id,
+      title: n.title || '',
+      message: n.message || '',
+      type: n.type || 'info',
+      data: n.data,
+      isRead: Boolean(n.is_read),
+      createdAt: n.created_at || n.createdAt
+    }));
+
+    return successResponse(res, 200, 'Notifications fetched successfully', {
+      items,
+      unreadCount,
+      pagination: {
+        page: 1,
+        totalPages: 1
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUnreadCount = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const count = await notificationService.getUnreadCount(userId);
+    return successResponse(res, 200, 'Unread notification count fetched successfully', { unreadCount: count });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const markAllAsRead = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const affectedCount = await notificationService.markAllAsRead(userId);
+    return successResponse(res, 200, 'All notifications marked as read', { count: affectedCount, updated: affectedCount });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const markAsRead = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const notificationId = req.params.id;
+    const updated = await notificationService.markAsRead(userId, notificationId);
+    if (!updated) {
+      return errorResponse(res, 404, 'Notification not found or access denied');
+    }
+    return successResponse(res, 200, 'Notification marked as read', updated);
+  } catch (error) {
+    next(error);
+  }
+};
+

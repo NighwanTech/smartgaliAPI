@@ -1,7 +1,13 @@
 import express from 'express';
 import * as followController from './follow.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+router.post('/user', authenticate, followController.followUser);
+router.delete('/unfollow/:targetUserId', authenticate, followController.unfollowUser);
+router.get('/followers', authenticate, followController.getFollowers);
+router.get('/following', authenticate, followController.getFollowing);
 
 /**
  * @swagger
@@ -33,7 +39,7 @@ const router = express.Router();
  *       201:
  *         description: Follow created successfully
  */
-router.post('/', followController.createFollow);
+router.post('/', authenticate, followController.createFollow);
 
 /**
  * @swagger

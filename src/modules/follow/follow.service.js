@@ -37,9 +37,88 @@ export const softDeleteFollow = async (id, deletedRemarks, updated_by) => {
   return await follow.update({ is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() });
 };
 
-export const bulkSoftDeleteFollows = async (ids, deletedRemarks, updated_by) => {
-  return await Follow.update(
-    { is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() },
-    { where: { id: ids, is_deleted: false } }
-  );
+import UserProfile from '../userProfile/userProfile.model.js';
+
+export const followUser = async (followerId, targetUserId) => {
+  if (Number(followerId) === Number(targetUserId)) {
+    throw new Error('You cannot follow yourself');
+  }
+
+  const existing = await Follow.findOne({
+    where: { follower_id: followerId, following_id: targetUserId, is_deleted: false }
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return await Follow.create({
+    follower_id: followerId,
+    following_id: targetUserId,
+    is_active: true,
+    is_deleted: false,
+  });
 };
+
+export const unfollowUser = async (followerId, targetUserId) => {
+  const follow = await Follow.findOne({
+    where: { follower_id: followerId, following_id: targetUserId, is_deleted: false }
+  });
+  if (!follow) return false;
+
+  await follow.update({ is_deleted: true, updatedAt: new Date() });
+  return true;
+};
+
+export const getFollowers = async (userId) => {
+  const follows = await Follow.findAll({
+    where: { following_id: userId, is_deleted: false },
+    include: [
+      {
+        model: User,
+        as: 'follower',
+        attributes: ['userId', 'userName', 'email'],
+        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'fullName'] }]
+      }
+    ]
+  });
+
+  return follows.map(f => {
+    const user = f.follower;
+    if (!user) return null;
+    return {
+      userId: user.userId,
+      userName: user.userName,
+      fullName: user.profile?.fullName || user.userName,
+      avatarUrl: user.profile?.avatarUrl || null,
+      followedAt: f.created_at || f.createdAt,
+    };
+  }).filter(Boolean);
+};
+
+export const getFollowing = async (userId) => {
+  const follows = await Follow.findAll({
+    where: { follower_id: userId, is_deleted: false },
+    include: [
+      {
+        model: User,
+        as: 'following',
+        attributes: ['userId', 'userName', 'email'],
+        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'fullName'] }]
+      }
+    ]
+  });
+
+  return follows.map(f => {
+    const user = f.following;
+    if (!user) return null;
+    return {
+      userId: user.userId,
+      userName: user.userName,
+      fullName: user.profile?.fullName || user.userName,
+      avatarUrl: user.profile?.avatarUrl || null,
+      followedAt: f.created_at || f.createdAt,
+    };
+  }).filter(Boolean);
+};
+

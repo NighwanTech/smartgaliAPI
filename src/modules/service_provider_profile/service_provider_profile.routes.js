@@ -1,7 +1,10 @@
 import express from 'express';
 import * as serviceProviderProfileController from './service_provider_profile.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+router.get('/earnings', authenticate, serviceProviderProfileController.getEarnings);
 
 /**
  * @swagger

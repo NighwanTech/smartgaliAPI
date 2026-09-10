@@ -1,7 +1,15 @@
 import express from 'express';
 import * as notificationController from './notification.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+router.get('/me', authenticate, notificationController.getMyNotifications);
+router.get('/me/unread-count', authenticate, notificationController.getUnreadCount);
+router.put('/me/read-all', authenticate, notificationController.markAllAsRead);
+router.patch('/me/read-all', authenticate, notificationController.markAllAsRead);
+router.put('/:id/read', authenticate, notificationController.markAsRead);
+router.patch('/:id/read', authenticate, notificationController.markAsRead);
 
 /**
  * @swagger
@@ -157,7 +165,7 @@ router.get('/email', notificationController.getAllEmails);
  *       200:
  *         description: Notifications deleted successfully (bulk soft delete)
  */
-router.post('/bulk-delete', notificationController.bulkDeleteNotifications);
+router.post('/bulk-delete', authenticate, notificationController.bulkDeleteNotifications);
 
 /**
  * @swagger
@@ -238,7 +246,7 @@ router.put('/:id', notificationController.updateNotification);
  *       404:
  *         description: Notification not found
  */
-router.delete('/:id', notificationController.deleteNotification);
+router.delete('/:id', authenticate, notificationController.deleteNotification);
 
 
 

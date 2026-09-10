@@ -61,3 +61,50 @@ export const verifyProfile = async (id, updated_by) => {
   return await profile.update({ is_verified: true, updated_by, updatedAt: new Date() });
 };
 
+import { Op } from 'sequelize';
+import ServiceBooking from '../service_booking/service_booking.model.js';
+import ServiceListing from '../service_listing/service_listing.model.js';
+
+export const getEarnings = async (userId) => {
+  const provider = await ServiceProviderProfile.findOne({
+    where: { user_id: userId, is_deleted: false }
+  });
+
+  const providerId = provider ? provider.id : null;
+
+  let listingIds = [];
+  if (providerId) {
+    const listings = await ServiceListing.findAll({
+      where: { provider_id: providerId, is_deleted: false },
+      attributes: ['id']
+    });
+    listingIds = listings.map(l => l.id);
+  }
+
+  const whereCondition = { status: 'completed', is_deleted: false };
+  if (listingIds.length > 0) {
+    whereCondition[Op.or] = [
+      { listing_id: listingIds },
+      { user_id: userId }
+    ];
+  } else {
+    whereCondition.user_id = userId;
+  }
+
+  const completedBookings = await ServiceBooking.findAll({
+    where: whereCondition
+  });
+
+  const totalEarnings = completedBookings.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const completedBookingsCount = completedBookings.length;
+  const averageBookingValue = completedBookingsCount > 0 ? Number((totalEarnings / completedBookingsCount).toFixed(2)) : 0;
+
+  return {
+    totalEarnings: Number(totalEarnings.toFixed(2)),
+    completedBookingsCount,
+    averageBookingValue,
+    period: 'allTime'
+  };
+};
+
+
