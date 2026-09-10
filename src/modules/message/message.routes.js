@@ -40,6 +40,10 @@ const router = express.Router();
  *         description: Message created successfully
  */
 router.post('/', messageController.createMessage);
+router.post('/send', messageController.sendMessage);
+router.post('/mark-all-read', messageController.markAllRead);
+router.get('/chat/:chatId', messageController.getChatMessages);
+router.get('/chat/:chatId/messages', messageController.getChatMessages);
 
 /**
  * @swagger

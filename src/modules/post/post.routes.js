@@ -50,6 +50,7 @@ const router = express.Router();
  *         description: Post created successfully
  */
 router.post('/', postController.createPost);
+router.post('/batch-views', postController.recordBatchViews);
 
 /**
  * @swagger
@@ -62,6 +63,7 @@ router.post('/', postController.createPost);
  *         description: A list of posts
  */
 router.get('/', postController.getAllPosts);
+router.get('/home', postController.getAllPosts);
 
 /**
  * @swagger

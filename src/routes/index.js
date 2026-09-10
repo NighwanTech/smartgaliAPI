@@ -89,6 +89,7 @@ router.use('/society-poll', societyPollRoutes);
 router.use('/media-file', mediaFileRoutes);
 router.use('/post', postRoutes);
 router.use('/posts', postRoutes); // Dual-route alias for Flutter compatibility
+router.use('/feed', postRoutes); // Dual-route alias for Flutter feed compatibility
 router.use('/post-like', postLikeRoutes);
 router.use('/post-comment', postCommentRoutes);
 router.use('/post-share', postShareRoutes);

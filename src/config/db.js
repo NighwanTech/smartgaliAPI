@@ -11,12 +11,16 @@ const sequelize = new Sequelize(env.db.name, env.db.user, env.db.password, {
   dialectOptions: {
     dateStrings: true,
     typeCast: true,
+    connectTimeout: 60000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
   },
   pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
+    max: 20,
+    min: 2,
+    acquire: 60000,
+    idle: 30000,
+    evict: 10000,
   },
 });
 

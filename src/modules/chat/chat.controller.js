@@ -19,6 +19,15 @@ export const getAllChats = async (req, res, next) => {
   }
 };
 
+export const getConversations = async (req, res, next) => {
+  try {
+    const chats = await chatService.getAllChats();
+    return successResponse(res, 200, 'Conversations fetched successfully', chats);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getChatById = async (req, res, next) => {
   try {
     const chat = await chatService.getChatById(req.params.id);

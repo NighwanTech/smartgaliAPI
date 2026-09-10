@@ -1,5 +1,6 @@
 import express from 'express';
 import * as chatController from './chat.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -51,6 +52,10 @@ router.post('/', chatController.createChat);
  *         description: A list of chats
  */
 router.get('/', chatController.getAllChats);
+router.get('/my-chats', authenticate, chatController.getConversations);
+router.get('/conversations', authenticate, chatController.getConversations);
+router.post('/one-to-one', authenticate, chatController.createChat);
+router.post('/group', authenticate, chatController.createChat);
 
 /**
  * @swagger

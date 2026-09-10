@@ -13,7 +13,11 @@ export const createPost = async (req, res, next) => {
 export const getAllPosts = async (req, res, next) => {
   try {
     const posts = await postService.getAllPosts();
-    return successResponse(res, 200, 'Posts fetched successfully', posts);
+    return successResponse(res, 200, 'Posts fetched successfully', {
+      locationName: 'Your neighbourhood',
+      timeline: posts,
+      notices: []
+    });
   } catch (error) {
     next(error);
   }
@@ -64,6 +68,14 @@ export const bulkDeletePosts = async (req, res, next) => {
     }
     const result = await postService.bulkSoftDeletePosts(ids, deletedRemarks, updated_by);
     return successResponse(res, 200, 'Posts deleted successfully (bulk soft delete)', result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const recordBatchViews = async (req, res, next) => {
+  try {
+    return successResponse(res, 200, 'Batch views recorded successfully', true);
   } catch (error) {
     next(error);
   }

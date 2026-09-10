@@ -163,11 +163,40 @@ export const getProfile = async (req, res, next) => {
       locationName:      profile?.locationName ?? null,
       latitude:          user.latitude != null ? parseFloat(user.latitude) : null,
       longitude:         user.longitude != null ? parseFloat(user.longitude) : null,
-      isProfileComplete: profile?.isProfileComplete === true || profile?.isProfileComplete === 1,
+      isProfileComplete: profile ? (profile.isProfileComplete === true || profile.isProfileComplete === 1 || profile.isProfileComplete === null) : true,
     };
     // password is never included — it is not part of responsePayload
 
     return successResponse(res, 200, 'Profile fetched successfully', responsePayload);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) {
+      return errorResponse(res, 401, 'Unauthorized');
+    }
+
+    const { fullName, avatarUrl, bio, locationName, latitude, longitude, isProfileComplete } = req.body;
+    let [profile] = await UserProfile.findOrCreate({
+      where: { user_id: userId },
+      defaults: { user_id: userId, isProfileComplete: true }
+    });
+
+    const updateData = { isProfileComplete: true };
+    if (fullName !== undefined) updateData.fullName = fullName;
+    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+    if (bio !== undefined) updateData.bio = bio;
+    if (locationName !== undefined) updateData.locationName = locationName;
+    if (latitude !== undefined) updateData.latitude = latitude;
+    if (longitude !== undefined) updateData.longitude = longitude;
+    if (isProfileComplete !== undefined) updateData.isProfileComplete = isProfileComplete;
+
+    await profile.update(updateData);
+    return successResponse(res, 200, 'Profile updated successfully', profile);
   } catch (error) {
     next(error);
   }

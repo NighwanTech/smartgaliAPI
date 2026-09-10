@@ -40,6 +40,17 @@ export const softDeleteMessage = async (id, deletedRemarks, updated_by) => {
   return await message.update({ is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() });
 };
 
+export const getMessagesByChatId = async (chatId) => {
+  return await Message.findAll({
+    where: { chat_id: chatId, is_deleted: false },
+    order: [['created_at', 'ASC']],
+    include: [
+      { model: User, as: 'sender', attributes: ['userId', 'userName'] },
+      { model: Chat, as: 'chat', attributes: ['id', 'chat_type'] }
+    ]
+  });
+};
+
 export const bulkSoftDeleteMessages = async (ids, deletedRemarks, updated_by) => {
   return await Message.update(
     { is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() },
