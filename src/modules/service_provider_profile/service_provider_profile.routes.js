@@ -4,8 +4,6 @@ import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.get('/earnings', authenticate, serviceProviderProfileController.getEarnings);
-
 /**
  * @swagger
  * tags:
@@ -44,6 +42,7 @@ router.get('/earnings', authenticate, serviceProviderProfileController.getEarnin
  *       201:
  *         description: Service provider profile created successfully
  */
+router.get('/earnings', authenticate, serviceProviderProfileController.getEarnings);
 router.post('/', serviceProviderProfileController.createProfile);
 
 /**

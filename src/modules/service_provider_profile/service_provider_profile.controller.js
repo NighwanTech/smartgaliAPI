@@ -93,9 +93,16 @@ export const verifyProfile = async (req, res, next) => {
 
 export const getEarnings = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-    const earnings = await serviceProviderProfileService.getEarnings(userId);
-    return successResponse(res, 200, 'Provider earnings calculated successfully', earnings);
+    const userId = req.user?.id || req.user?.userId;
+    const earnings = await serviceProviderProfileService.getEarningsByUserId(userId);
+    if (!earnings) {
+      return successResponse(res, 200, 'Earnings fetched successfully', {
+        totalEarnings: 0,
+        completedServicesCount: 0,
+        earningsHistory: [],
+      });
+    }
+    return successResponse(res, 200, 'Earnings fetched successfully', earnings);
   } catch (error) {
     next(error);
   }

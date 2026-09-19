@@ -1,191 +1,148 @@
+/**
+ * Event Routes Configuration
+ * ─────────────────────────────────────────────────────────────────────────────
+ * REST endpoints for Event Discovery, Creation, Management, and Concurrency-Safe RSVP.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import express from 'express';
 import * as eventController from './event.controller.js';
+import * as eventInvitationController from '../event_invitation/event_invitation.controller.js';
+import eventInvitationRoutes from '../event_invitation/event_invitation.routes.js';
+import { respondInvitationSchema } from './event.validation.js';
+import { authenticate, optionalAuthenticate } from '../../middleware/auth.middleware.js';
+import { validateBody, validateQuery, validateParams } from '../../middleware/validation.middleware.js';
+import {
+  createEventSchema,
+  bulkCreateEventSchema,
+  updateEventSchema,
+  rsvpSchema,
+  nearbyQuerySchema,
+  upcomingQuerySchema,
+  eventIdParamSchema,
+} from './event.validation.js';
 import { uploadImage } from '../../utils/fileUpload.js';
+import {
+  eventReadLimiter,
+  eventCreateLimiter,
+  eventRsvpLimiter,
+  eventNearbyLimiter,
+} from '../../middleware/rateLimit.middleware.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: Events
- *   description: Event management APIs
- */
+// ── Public / Read Endpoints ──────────────────────────────────────────────────
+router.get('/categories', eventReadLimiter, eventController.getEventCategories);
+router.get('/upcoming', eventReadLimiter, optionalAuthenticate, validateQuery(upcomingQuerySchema), eventController.getUpcomingEvents);
+router.get('/nearby', eventNearbyLimiter, optionalAuthenticate, validateQuery(nearbyQuerySchema), eventController.getNearbyEvents);
+router.get('/my-rsvps', authenticate, eventReadLimiter, eventController.getMyRsvps);
+router.get('/my', authenticate, eventReadLimiter, eventController.getMyRsvps); // PRD Sec 18.6
+router.get('/invitations/my', authenticate, eventReadLimiter, eventInvitationController.getMyInvitations);
+router.put('/invitations/:id/respond', authenticate, eventCreateLimiter, validateBody(respondInvitationSchema), eventInvitationController.respondToInvitation);
 
-/**
- * @swagger
- * /api/v1/event:
- *   post:
- *     summary: Create a new event
- *     tags: [Events]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *             properties:
- *               created_by:
- *                 type: integer
- *               community_id:
- *                 type: integer
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               location:
- *                 type: string
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               start_at:
- *                 type: string
- *                 format: date-time
- *               end_at:
- *                 type: string
- *                 format: date-time
- *               event_type:
- *                 type: string
- *                 enum: [online, offline, hybrid]
- *               cover_image:
- *                 type: string
- *     responses:
- *       201:
- *         description: Event created successfully
- */
-router.post('/', uploadImage('event').single('cover_image'), eventController.createEvent);
+// ── CRUD Endpoints ───────────────────────────────────────────────────────────
+router.get('/', eventReadLimiter, optionalAuthenticate, validateQuery(upcomingQuerySchema), eventController.getUpcomingEvents);
 
-/**
- * @swagger
- * /api/v1/event:
- *   get:
- *     summary: Get all active events
- *     tags: [Events]
- *     responses:
- *       200:
- *         description: A list of events
- */
-router.get('/', eventController.getAllEvents);
+router.post(
+  '/',
+  authenticate,
+  eventCreateLimiter,
+  uploadImage('event').any(),
+  validateBody(createEventSchema),
+  eventController.createEvent
+);
 
-/**
- * @swagger
- * /api/v1/event/bulk-delete:
- *   post:
- *     summary: Bulk soft delete events
- *     tags: [Events]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - ids
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: integer
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Events deleted successfully (bulk soft delete)
- */
-router.post('/bulk-delete', eventController.bulkDeleteEvents);
+router.get(
+  '/:id',
+  eventReadLimiter,
+  optionalAuthenticate,
+  validateParams(eventIdParamSchema),
+  eventController.getEventById
+);
 
-/**
- * @swagger
- * /api/v1/event/{id}:
- *   get:
- *     summary: Get an event by ID
- *     tags: [Events]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Event data
- *       404:
- *         description: Event not found
- */
-router.get('/:id', eventController.getEventById);
+router.put(
+  '/:id',
+  authenticate,
+  eventCreateLimiter,
+  validateParams(eventIdParamSchema),
+  uploadImage('event').any(),
+  validateBody(updateEventSchema),
+  eventController.updateEvent
+);
 
-/**
- * @swagger
- * /api/v1/event/{id}:
- *   put:
- *     summary: Update an event
- *     tags: [Events]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               location:
- *                 type: string
- *               event_type:
- *                 type: string
- *                 enum: [online, offline, hybrid]
- *               cover_image:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Event updated successfully
- *       404:
- *         description: Event not found
- */
-router.put('/:id', uploadImage('event').single('cover_image'), eventController.updateEvent);
+router.put(
+  '/:id/cancel',
+  authenticate,
+  validateParams(eventIdParamSchema),
+  eventController.cancelEvent
+);
 
-/**
- * @swagger
- * /api/v1/event/{id}:
- *   delete:
- *     summary: Soft delete an event
- *     tags: [Events]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Event deleted successfully (soft delete)
- *       404:
- *         description: Event not found
- */
-router.delete('/:id', eventController.deleteEvent);
+router.delete(
+  '/:id',
+  authenticate,
+  validateParams(eventIdParamSchema),
+  eventController.deleteEvent
+);
+
+// ── RSVP Endpoints ───────────────────────────────────────────────────────────
+router.put(
+  '/:id/rsvp',
+  authenticate,
+  eventRsvpLimiter,
+  validateParams(eventIdParamSchema),
+  validateBody(rsvpSchema),
+  eventController.setEventRsvp
+);
+
+router.delete(
+  '/:id/rsvp',
+  authenticate,
+  eventRsvpLimiter,
+  validateParams(eventIdParamSchema),
+  eventController.cancelEventRsvp
+);
+
+router.get(
+  '/:id/participants',
+  eventReadLimiter,
+  optionalAuthenticate,
+  validateParams(eventIdParamSchema),
+  eventController.getEventParticipants
+);
+
+// PRD Section 18.6: POST /events/:id/join and POST /events/:id/leave
+router.post(
+  '/:id/join',
+  authenticate,
+  eventRsvpLimiter,
+  validateParams(eventIdParamSchema),
+  eventController.joinEvent
+);
+
+// ── Event Chat Lifecycle ──────────────────────────────────────────────────
+router.get(
+  '/:id/chat',
+  authenticate,
+  validateParams(eventIdParamSchema),
+  eventController.getEventChat
+);
+
+router.post(
+  '/:id/chat',
+  authenticate,
+  validateParams(eventIdParamSchema),
+  eventController.getEventChat
+);
+
+// ── Event Invitations Sub-router ─────────────────────────────────────────────
+router.use('/:id/invitations', eventInvitationRoutes);
+
+router.post(
+  '/:id/leave',
+  authenticate,
+  eventRsvpLimiter,
+  validateParams(eventIdParamSchema),
+  eventController.leaveEvent
+);
 
 export default router;

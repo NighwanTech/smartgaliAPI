@@ -10,8 +10,8 @@ export const getAllReviews = async () => {
   return await BusinessReview.findAll({
     where: { is_deleted: false },
     include: [
-      { model: BusinessProfile, as: 'business', attributes: ['id', 'user_id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
+      { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
     ]
   });
 };
@@ -20,18 +20,8 @@ export const getReviewById = async (id) => {
   return await BusinessReview.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: BusinessProfile, as: 'business', attributes: ['id', 'user_id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
-    ]
-  });
-};
-
-export const getReviewsByBusinessId = async (businessId) => {
-  return await BusinessReview.findAll({
-    where: { business_id: businessId, is_deleted: false },
-    include: [
-      { model: BusinessProfile, as: 'business', attributes: ['id', 'user_id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
+      { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
     ]
   });
 };

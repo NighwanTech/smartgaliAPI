@@ -1,7 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
-import Role from '../role/role.model.js';
 
 const User = sequelize.define('User', {
   userId: {
@@ -9,32 +8,61 @@ const User = sequelize.define('User', {
     primaryKey: true,
     autoIncrement: true,
   },
-  role_id: {
-    type: DataTypes.INTEGER,
-    field: 'user_role',
-    allowNull: true,
-    references: {
-      model: Role,
-      key: 'roleId',
-    }
-  },
+
   userName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,  // nullable for OTP-only (phone) registrations
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
     unique: true,
+  },
+  // ── Optional password (OTP-first users may set one later) ──
+  // Stored as a bcrypt hash. Nullable because OTP login users never
+  // need a password unless they explicitly set one via /profile/change-password.
+  password: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   phone: {
     type: DataTypes.STRING,
     allowNull: true,
+    unique: true,
   },
-  password: {
+
+  // ── OTP Login Fields ──────────────────────────────────────
+  currentOtp: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,  // stores bcrypt-hashed OTP
   },
+  otpExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  otpSentAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'otp_sent_at', // maps to 'otp_sent_at' column in DB
+  },
+  otpResendCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'otp_resend_count',
+  },
+  otpBlockedUntil: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'otp_blocked_until',
+  },
+  // ── Role shorthand for OTP-registered users ───────────────
+  userRole: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'resident',
+    field: 'user_role',  // maps to 'user_role' column in DB
+  },
+
   latitude: {
     type: DataTypes.DECIMAL(10, 8),
     allowNull: true,
@@ -47,9 +75,19 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  last_login: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'pending'),
     defaultValue: 'active',
+  },
+  profile_image: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.profile?.avatarUrl || null;
+    }
   },
   ...commonFields
 }, {
@@ -58,7 +96,6 @@ const User = sequelize.define('User', {
 });
 
 // Setup relationships
-User.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
-Role.hasMany(User, { foreignKey: 'role_id' });
+// User relationships handled elsewhere if needed
 
 export default User;

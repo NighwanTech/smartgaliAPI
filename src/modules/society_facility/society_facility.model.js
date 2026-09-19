@@ -11,11 +11,11 @@ const SocietyFacility = sequelize.define('SocietyFacility', {
   },
   society_id: {
     type: DataTypes.BIGINT,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: SocietyProfile,
       key: 'id',
-    }
+    },
   },
   name: {
     type: DataTypes.STRING,
@@ -25,13 +25,25 @@ const SocietyFacility = sequelize.define('SocietyFacility', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  ...commonFields
+  operating_hours: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  booking_rules: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  max_capacity: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  ...commonFields,
 }, {
   timestamps: false,
   tableName: 'society_facilities',
 });
 
-// Setup relationships
 SocietyFacility.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
+SocietyProfile.hasMany(SocietyFacility, { foreignKey: 'society_id', as: 'facilities' });
 
 export default SocietyFacility;

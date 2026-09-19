@@ -1,166 +1,65 @@
 import express from 'express';
 import * as societyAnnouncementController from './society_announcement.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { validateBody, validateQuery, validateParams } from '../../middleware/validation.middleware.js';
+import {
+  idParamSchema,
+  createAnnouncementSchema,
+  updateAnnouncementSchema,
+  listAnnouncementQuerySchema,
+} from '../society_profile/society.validation.js';
+import { requireSocietyMember, requireSocietyRole } from '../../middleware/societyAuth.middleware.js';
+import {
+  societyReadLimiter,
+  societyMutationLimiter,
+} from '../../middleware/rateLimit.middleware.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: SocietyAnnouncements
- *   description: Society Announcement management APIs
- */
+router.post(
+  '/',
+  authenticate,
+  societyMutationLimiter,
+  requireSocietyRole(['admin', 'committee']),
+  validateBody(createAnnouncementSchema),
+  societyAnnouncementController.createAnnouncement
+);
 
-/**
- * @swagger
- * /api/v1/society-announcement:
- *   post:
- *     summary: Create a new society announcement
- *     tags: [SocietyAnnouncements]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *             properties:
- *               society_id:
- *                 type: integer
- *               created_by:
- *                 type: integer
- *               title:
- *                 type: string
- *               message:
- *                 type: string
- *     responses:
- *       201:
- *         description: Society announcement created successfully
- */
-router.post('/', societyAnnouncementController.createAnnouncement);
+router.get(
+  '/',
+  authenticate,
+  societyReadLimiter,
+  validateQuery(listAnnouncementQuerySchema),
+  requireSocietyMember,
+  societyAnnouncementController.getAllAnnouncements
+);
 
-/**
- * @swagger
- * /api/v1/society-announcement:
- *   get:
- *     summary: Get all active society announcements
- *     tags: [SocietyAnnouncements]
- *     responses:
- *       200:
- *         description: A list of society announcements
- */
-router.get('/', societyAnnouncementController.getAllAnnouncements);
+router.get(
+  '/:id',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyAnnouncementController.getAnnouncementById
+);
 
-/**
- * @swagger
- * /api/v1/society-announcement/bulk-delete:
- *   post:
- *     summary: Bulk soft delete society announcements
- *     tags: [SocietyAnnouncements]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - ids
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: integer
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society announcements deleted successfully (bulk soft delete)
- */
-router.post('/bulk-delete', societyAnnouncementController.bulkDeleteAnnouncements);
+router.put(
+  '/:id',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  validateBody(updateAnnouncementSchema),
+  societyAnnouncementController.updateAnnouncement
+);
 
-/**
- * @swagger
- * /api/v1/society-announcement/{id}:
- *   get:
- *     summary: Get a society announcement by ID
- *     tags: [SocietyAnnouncements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Society announcement data
- *       404:
- *         description: Society announcement not found
- */
-router.get('/:id', societyAnnouncementController.getAnnouncementById);
-
-/**
- * @swagger
- * /api/v1/society-announcement/{id}:
- *   put:
- *     summary: Update a society announcement
- *     tags: [SocietyAnnouncements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               message:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society announcement updated successfully
- *       404:
- *         description: Society announcement not found
- */
-router.put('/:id', societyAnnouncementController.updateAnnouncement);
-
-/**
- * @swagger
- * /api/v1/society-announcement/{id}:
- *   delete:
- *     summary: Soft delete a society announcement
- *     tags: [SocietyAnnouncements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society announcement deleted successfully (soft delete)
- *       404:
- *         description: Society announcement not found
- */
-router.delete('/:id', societyAnnouncementController.deleteAnnouncement);
+router.delete(
+  '/:id',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  societyAnnouncementController.deleteAnnouncement
+);
 
 export default router;

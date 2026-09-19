@@ -1,4 +1,4 @@
-import { DataTypes } from 'sequelize';
+﻿import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
@@ -15,7 +15,7 @@ const SocietyProfile = sequelize.define('SocietyProfile', {
     references: {
       model: User,
       key: 'userId',
-    }
+    },
   },
   society_name: {
     type: DataTypes.STRING,
@@ -41,13 +41,12 @@ const SocietyProfile = sequelize.define('SocietyProfile', {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
-  ...commonFields
+  ...commonFields,
 }, {
   timestamps: false,
   tableName: 'society_profiles',
 });
 
-// Setup relationships
 SocietyProfile.belongsTo(User, { foreignKey: 'user_id', as: 'admin_user' });
 
 export default SocietyProfile;

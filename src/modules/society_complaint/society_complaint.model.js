@@ -4,6 +4,21 @@ import { commonFields } from '../../utils/commonFields.js';
 import SocietyProfile from '../society_profile/society_profile.model.js';
 import User from '../user/user.model.js';
 
+export const COMPLAINT_STATUS = Object.freeze({
+  OPEN: 'open',
+  ASSIGNED: 'assigned',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+});
+
+export const COMPLAINT_PRIORITY = Object.freeze({
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  URGENT: 'urgent',
+});
+
 const SocietyComplaint = sequelize.define('SocietyComplaint', {
   id: {
     type: DataTypes.BIGINT,
@@ -12,19 +27,19 @@ const SocietyComplaint = sequelize.define('SocietyComplaint', {
   },
   society_id: {
     type: DataTypes.BIGINT,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: SocietyProfile,
       key: 'id',
-    }
+    },
   },
   user_id: {
     type: DataTypes.BIGINT,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: User,
       key: 'userId',
-    }
+    },
   },
   title: {
     type: DataTypes.STRING,
@@ -34,18 +49,61 @@ const SocietyComplaint = sequelize.define('SocietyComplaint', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  status: {
-    type: DataTypes.ENUM('open', 'in_progress', 'resolved', 'closed'),
-    defaultValue: 'open',
+  category: {
+    type: DataTypes.STRING(100),
+    defaultValue: 'general',
+    allowNull: false,
   },
-  ...commonFields
+  sub_category: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  location_type: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  flat_no: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  exact_location: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  priority: {
+    type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
+    defaultValue: 'medium',
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.ENUM('open', 'assigned', 'in_progress', 'resolved', 'closed'),
+    defaultValue: 'open',
+    allowNull: false,
+  },
+  assigned_to: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: User,
+      key: 'userId',
+    },
+  },
+  resolved_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  closed_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  ...commonFields,
 }, {
   timestamps: false,
   tableName: 'society_complaints',
 });
 
-// Setup relationships
 SocietyComplaint.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
 SocietyComplaint.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+SocietyComplaint.belongsTo(User, { foreignKey: 'assigned_to', as: 'assignee' });
 
 export default SocietyComplaint;

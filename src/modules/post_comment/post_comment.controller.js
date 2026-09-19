@@ -1,14 +1,55 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
 import * as postCommentService from './post_comment.service.js';
 
-export const createComment = async (req, res, next) => {
+export const getCommentsByPost = async (req, res, next) => {
   try {
-    const comment = await postCommentService.createComment(req.body);
-    return successResponse(res, 201, 'Post comment created successfully', comment);
+    const { postId } = req.params;
+    const comments = await postCommentService.getCommentsByPost(postId);
+    // Flatten nested user profile into authorName
+    const formatted = comments.map(c => ({
+      id: c.id,
+      content: c.content,
+      createdAt: c.created_at,
+      user: {
+        fullName: c.user?.profile?.fullName || c.user?.userName || 'User',
+      },
+    }));
+    return successResponse(res, 200, 'Comments fetched successfully', formatted);
   } catch (error) {
     next(error);
   }
 };
+
+export const createComment = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { post_id, content, parent_id } = req.body;
+    if (!post_id || !content?.trim()) {
+      return errorResponse(res, 400, 'post_id and content are required.');
+    }
+    const result = await postCommentService.createComment({
+      post_id,
+      user_id: userId,
+      content: content.trim(),
+      parent_id: parent_id || null,
+      created_by: userId,
+    });
+    if (!result) {
+      return errorResponse(res, 404, 'Post not found.');
+    }
+    const { comment, commentsCount } = result;
+    return successResponse(res, 201, 'Comment added successfully', {
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.created_at,
+      authorName: comment.user?.profile?.fullName || comment.user?.userName || 'User',
+      commentsCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 export const getAllComments = async (req, res, next) => {
   try {

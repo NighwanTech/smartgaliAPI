@@ -1,11 +1,12 @@
-import { errorResponse } from '../utils/response.js';
+﻿import { errorResponse } from '../utils/response.js';
 import env from '../config/env.js';
+import multer from 'multer';
 
 /**
  * Global error handling middleware
  */
 export const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal Server Error';
 
   // Log error for debugging in development
@@ -15,6 +16,9 @@ export const errorHandler = (err, req, res, next) => {
 
   // Handle specific known errors (e.g., Sequelize, JWT)
   if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
+    if (env.nodeEnv === 'development') {
+      console.error('[Sequelize Error Details]:', JSON.stringify(err.errors, null, 2));
+    }
     const errors = err.errors.map(e => e.message);
     return errorResponse(res, 400, 'Validation Error', errors);
   }
@@ -27,7 +31,20 @@ export const errorHandler = (err, req, res, next) => {
     return errorResponse(res, 401, 'Token expired.');
   }
 
-  return errorResponse(res, statusCode, message, env.nodeEnv === 'development' ? err.stack : null);
+  if (err instanceof multer.MulterError) {
+    const isAttachment = err.field === 'attachment';
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? (isAttachment ? 'Attachment exceeds the 100 MB upload limit.' : 'Image must be 5 MB or smaller.')
+      : `Invalid file upload: ${err.message}`;
+    return errorResponse(res, 400, message);
+  }
+
+  if (['INVALID_IMAGE_TYPE', 'INVALID_ATTACHMENT_TYPE', 'INVALID_ATTACHMENT_CONTENT', 'ATTACHMENT_TOO_LARGE'].includes(err.code)) {
+    return errorResponse(res, 400, err.message);
+  }
+
+  // Never leak stack traces or internal details to clients in production
+  return errorResponse(res, statusCode, message, env.isProduction ? undefined : err.stack);
 };
 
 /**
@@ -38,3 +55,4 @@ export const notFoundHandler = (req, res, next) => {
   err.statusCode = 404;
   next(err);
 };
+

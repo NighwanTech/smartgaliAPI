@@ -1,25 +1,7 @@
-import { DataTypes } from 'sequelize';
+﻿import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.js';
-import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
 import Community from '../community/community.model.js';
-
-// DEF-006: Destructure commonFields, omitting all attributes that do NOT exist
-// in the live MySQL `posts` table (verified via describeTable on srv1100.hstgr.io).
-//
-// Confirmed PRESENT in live posts:   is_active, is_deleted, created_at  ✅
-// Confirmed MISSING from live posts: created_by, updated_by, remark,
-//                                    updatedAt, deletedRemarks           ❌
-//
-// commonFields is NOT modified globally — this exclusion is local to post.model.js.
-const {
-  created_by: _cb,
-  updated_by: _ub,
-  remark: _rm,
-  updatedAt: _ua,
-  deletedRemarks: _dr,
-  ...postCommonFields
-} = commonFields;
 
 const Post = sequelize.define('Post', {
   id: {
@@ -30,34 +12,28 @@ const Post = sequelize.define('Post', {
   user_id: {
     type: DataTypes.BIGINT,
     allowNull: true,
-    references: {
-      model: User,
-      key: 'userId',
-    }
+    references: { model: User, key: 'userId' },
   },
   community_id: {
     type: DataTypes.BIGINT,
     allowNull: true,
-    references: {
-      model: Community,
-      key: 'communityId',
-    }
-  },
-  type: {
-    type: DataTypes.ENUM('text', 'image', 'video', 'poll', 'event'),
-    defaultValue: 'text',
   },
   content: {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  type: {
+    type: DataTypes.ENUM('text', 'image', 'video', 'poll', 'event', 'mixed'),
+    allowNull: false,
+    defaultValue: 'text',
+  },
+  visibility: {
+    type: DataTypes.ENUM('public', 'private', 'friends', 'community', 'followers'),
+    allowNull: false,
+    defaultValue: 'public',
+  },
   media_url: {
     type: DataTypes.STRING,
-    allowNull: true,
-  },
-  location: {
-    type: DataTypes.TEXT,
-    field: 'location_name',
     allowNull: true,
   },
   latitude: {
@@ -68,19 +44,68 @@ const Post = sequelize.define('Post', {
     type: DataTypes.DECIMAL(11, 8),
     allowNull: true,
   },
-  visibility: {
-    type: DataTypes.ENUM('public', 'private', 'friends', 'community'),
-    defaultValue: 'public',
+  likes_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
   },
-  // Only commonFields that physically exist in the live posts table:
-  // is_active, is_deleted, created_at
-  ...postCommonFields,
+  comments_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  shares_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  is_active: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  is_deleted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  is_pinned: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  pinned_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  comments_disabled: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  is_edited: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  edited_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  event_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+  },
+  link_preview_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  location_name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    field: 'created_at',
+  },
 }, {
   timestamps: false,
   tableName: 'posts',
 });
 
-// Setup relationships
+// Relationships
 Post.belongsTo(User, { foreignKey: 'user_id', as: 'author' });
 Post.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
 

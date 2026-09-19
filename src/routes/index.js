@@ -1,6 +1,6 @@
 import express from 'express';
-import authRoutes from '../modules/auth/auth.routes.js';
 import exampleRoutes from '../modules/example/example.routes.js';
+import permissionRoutes from '../modules/permission/permission.routes.js';
 import roleRoutes from '../modules/role/role.routes.js';
 import userRoutes from '../modules/user/user.routes.js';
 import userProfileRoutes from '../modules/userProfile/userProfile.routes.js';
@@ -18,6 +18,7 @@ import serviceListingRoutes from '../modules/service_listing/service_listing.rou
 import serviceBookingRoutes from '../modules/service_booking/service_booking.routes.js';
 import serviceReviewRoutes from '../modules/service_review/service_review.routes.js';
 import societyProfileRoutes from '../modules/society_profile/society_profile.routes.js';
+import societiesRoutes from '../modules/society_profile/societies.routes.js';
 import societyMemberRoutes from '../modules/society_member/society_member.routes.js';
 import societyFacilityRoutes from '../modules/society_facility/society_facility.routes.js';
 import societyAnnouncementRoutes from '../modules/society_announcement/society_announcement.routes.js';
@@ -25,8 +26,11 @@ import societyComplaintRoutes from '../modules/society_complaint/society_complai
 import societyVisitorRoutes from '../modules/society_visitor/society_visitor.routes.js';
 import societyParkingRoutes from '../modules/society_parking/society_parking.routes.js';
 import societyPollRoutes from '../modules/society_poll/society_poll.routes.js';
+import societyDocumentRoutes from '../modules/society_document/society_document.routes.js';
+import societyEmergencyContactRoutes from '../modules/society_emergency_contact/society_emergency_contact.routes.js';
 import mediaFileRoutes from '../modules/media_file/media_file.routes.js';
 import postRoutes from '../modules/post/post.routes.js';
+import feedRoutes from '../modules/feed/feed.routes.js';
 import postLikeRoutes from '../modules/post_like/post_like.routes.js';
 import postCommentRoutes from '../modules/post_comment/post_comment.routes.js';
 import postShareRoutes from '../modules/post_share/post_share.routes.js';
@@ -34,7 +38,9 @@ import savedPostRoutes from '../modules/saved_post/saved_post.routes.js';
 import eventRoutes from '../modules/event/event.routes.js';
 import eventCategoryRoutes from '../modules/event_category/event_category.routes.js';
 import eventParticipantRoutes from '../modules/event_participant/event_participant.routes.js';
+import eventInvitationRoutes from '../modules/event_invitation/event_invitation.routes.js';
 import followRoutes from '../modules/follow/follow.routes.js';
+import userFollowRoutes from '../modules/follow/follow.routes.js'; // PRD: /users/follow, /users/followers, /users/following, /users/unfollow/:id
 import chatRoutes from '../modules/chat/chat.routes.js';
 import chatParticipantRoutes from '../modules/chat_participant/chat_participant.routes.js';
 import messageRoutes from '../modules/message/message.routes.js';
@@ -45,40 +51,45 @@ import adBannerRoutes from '../modules/ad_banner/ad_banner.routes.js';
 import adCampaignRoutes from '../modules/ad_campaign/ad_campaign.routes.js';
 import adSponsoredRoutes from '../modules/ad_sponsored/ad_sponsored.routes.js';
 import analyticsRoutes from '../modules/analytics/analytics.routes.js';
-import cmsRoutes from '../modules/cms/cms.routes.js';
-import settingRoutes from '../modules/setting/setting.routes.js';
-import ticketRoutes from '../modules/ticket/ticket.routes.js';
-import feedbackRoutes from '../modules/feedback/feedback.routes.js';
-import logRoutes from '../modules/system_log/system_log.routes.js';
+import profileRoutes from '../modules/profile/profile.routes.js';
+import authRoutes from '../modules/auth/auth.routes.js';
+import deviceRoutes from '../modules/user_devices/user_device.routes.js';
+import { generalApiLimiter } from '../middleware/rateLimit.middleware.js';
+
 const router = express.Router();
 
-// Mount auth module routes
-router.use('/auth', authRoutes);
+// Shared Redis-backed general API limiter (skips /health)
+router.use(generalApiLimiter);
 
 // Mount example module routes
 router.use('/example', exampleRoutes);
 router.use('/role', roleRoutes);
+router.use('/roles', roleRoutes);
+router.use('/permission', permissionRoutes);
+router.use('/permissions', permissionRoutes);
 router.use('/user', userRoutes);
-router.use('/users', userRoutes); // Dual-route alias for Flutter compatibility
 router.use('/user-profile', userProfileRoutes);
+router.use('/profile', profileRoutes);
+router.use('/auth', authRoutes);
+router.use('/device', deviceRoutes);
 router.use('/community-category', communityCategoryRoutes);
 router.use('/community', communityRoutes);
-router.use('/communities', communityRoutes); // Dual-route alias for Flutter compatibility
+router.use('/communities', communityRoutes);
 router.use('/community-member', communityMemberRoutes);
 router.use('/business-category', businessCategoryRoutes);
 router.use('/business-profile', businessProfileRoutes);
-router.use('/businesses', businessProfileRoutes); // Dual-route alias for Flutter compatibility
 router.use('/business-image', businessImageRoutes);
 router.use('/business-offer', businessOfferRoutes);
 router.use('/business-review', businessReviewRoutes);
 router.use('/service-category', serviceCategoryRoutes);
 router.use('/service-provider-profile', serviceProviderProfileRoutes);
 router.use('/service-listing', serviceListingRoutes);
-router.use('/services', serviceListingRoutes); // Dual-route alias for Flutter compatibility
+router.use('/services', serviceListingRoutes);
 router.use('/service-booking', serviceBookingRoutes);
 router.use('/service-review', serviceReviewRoutes);
+router.use('/societies', societiesRoutes);
+router.use('/society', societiesRoutes);
 router.use('/society-profile', societyProfileRoutes);
-router.use('/societies', societyProfileRoutes); // Dual-route alias for Flutter compatibility
 router.use('/society-member', societyMemberRoutes);
 router.use('/society-facility', societyFacilityRoutes);
 router.use('/society-announcement', societyAnnouncementRoutes);
@@ -86,19 +97,27 @@ router.use('/society-complaint', societyComplaintRoutes);
 router.use('/society-visitor', societyVisitorRoutes);
 router.use('/society-parking', societyParkingRoutes);
 router.use('/society-poll', societyPollRoutes);
+router.use('/society-document', societyDocumentRoutes);
+router.use('/society-documents', societyDocumentRoutes);
+router.use('/society-emergency-contact', societyEmergencyContactRoutes);
+router.use('/society-emergency-contacts', societyEmergencyContactRoutes);
 router.use('/media-file', mediaFileRoutes);
 router.use('/post', postRoutes);
-router.use('/posts', postRoutes); // Dual-route alias for Flutter compatibility
-router.use('/feed', postRoutes); // Dual-route alias for Flutter feed compatibility
+router.use('/feed', feedRoutes);
 router.use('/post-like', postLikeRoutes);
 router.use('/post-comment', postCommentRoutes);
 router.use('/post-share', postShareRoutes);
 router.use('/saved-post', savedPostRoutes);
 router.use('/event', eventRoutes);
-router.use('/events', eventRoutes); // Dual-route alias for Flutter compatibility
+router.use('/events', eventRoutes);
+router.use('/event-categories', eventCategoryRoutes);
+router.use('/event-participants', eventParticipantRoutes);
 router.use('/event-category', eventCategoryRoutes);
 router.use('/event-participant', eventParticipantRoutes);
-router.use('/follow', followRoutes);
+router.use('/event-invitation', eventInvitationRoutes);
+router.use('/event-invitations', eventInvitationRoutes);
+router.use('/follow', followRoutes); // legacy admin CRUD routes
+router.use('/users', userFollowRoutes);  // PRD Phase 8: follow/followers/following/unfollow
 router.use('/chat', chatRoutes);
 router.use('/chat-participant', chatParticipantRoutes);
 router.use('/message', messageRoutes);
@@ -109,11 +128,6 @@ router.use('/ad-banner', adBannerRoutes);
 router.use('/ad-campaign', adCampaignRoutes);
 router.use('/ad-sponsored', adSponsoredRoutes);
 router.use('/analytics', analyticsRoutes);
-router.use('/cms', cmsRoutes);
-router.use('/setting', settingRoutes);
-router.use('/ticket', ticketRoutes);
-router.use('/feedback', feedbackRoutes);
-router.use('/log', logRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {

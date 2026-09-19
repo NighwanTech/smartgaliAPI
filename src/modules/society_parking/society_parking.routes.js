@@ -1,19 +1,65 @@
 import express from 'express';
-import * as parkingController from './society_parking.controller.js';
+import * as societyParkingController from './society_parking.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { validateBody, validateQuery, validateParams } from '../../middleware/validation.middleware.js';
+import {
+  idParamSchema,
+  createParkingSchema,
+  updateParkingSchema,
+  listParkingQuerySchema,
+} from '../society_profile/society.validation.js';
+import { requireSocietyMember, requireSocietyRole } from '../../middleware/societyAuth.middleware.js';
+import {
+  societyReadLimiter,
+  societyMutationLimiter,
+} from '../../middleware/rateLimit.middleware.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: SocietyParking
- *   description: Society Parking management APIs
- */
+router.post(
+  '/',
+  authenticate,
+  societyMutationLimiter,
+  requireSocietyRole(['admin', 'committee']),
+  validateBody(createParkingSchema),
+  societyParkingController.createParking
+);
 
-router.post('/', parkingController.createParking);
-router.get('/', parkingController.getAllParkings);
-router.get('/:id', parkingController.getParkingById);
-router.put('/:id', parkingController.updateParking);
-router.delete('/:id', parkingController.deleteParking);
+router.get(
+  '/',
+  authenticate,
+  societyReadLimiter,
+  validateQuery(listParkingQuerySchema),
+  requireSocietyMember,
+  societyParkingController.getAllParkings
+);
+
+router.get(
+  '/:id',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyParkingController.getParkingById
+);
+
+router.put(
+  '/:id',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  validateBody(updateParkingSchema),
+  societyParkingController.updateParking
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  societyParkingController.deleteParking
+);
 
 export default router;

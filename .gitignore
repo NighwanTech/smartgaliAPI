@@ -1,10 +1,12 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables — NEVER push to GitHub
 .env
+.env.*
 .env.local
 .env.*.local
+.env.production
 
 # Logs
 logs
@@ -17,6 +19,7 @@ yarn-error.log*
 dist/
 build/
 coverage/
+uploads/
 
 # OS generated files
 .DS_Store

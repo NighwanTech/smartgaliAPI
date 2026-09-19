@@ -1,7 +1,11 @@
 import express from 'express';
 import * as savedPostController from './saved_post.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { requirePostReadAccess } from '../../middleware/postAccess.middleware.js';
 
 const router = express.Router();
+
+router.use(authenticate);
 
 /**
  * @swagger
@@ -33,7 +37,7 @@ const router = express.Router();
  *       201:
  *         description: Saved post created successfully
  */
-router.post('/', savedPostController.createSavedPost);
+router.post('/', requirePostReadAccess, savedPostController.createSavedPost);
 
 /**
  * @swagger

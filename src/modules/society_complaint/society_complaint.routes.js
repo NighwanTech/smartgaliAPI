@@ -1,174 +1,116 @@
 import express from 'express';
 import * as societyComplaintController from './society_complaint.controller.js';
+import SocietyComplaint from './society_complaint.model.js';
+import { errorResponse } from '../../utils/response.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { validateBody, validateQuery, validateParams } from '../../middleware/validation.middleware.js';
+import {
+  idParamSchema,
+  createComplaintSchema,
+  updateComplaintStatusSchema,
+  assignComplaintSchema,
+  listComplaintQuerySchema,
+} from '../society_profile/society.validation.js';
+import { requireSocietyMember, requireSocietyRole } from '../../middleware/societyAuth.middleware.js';
+import {
+  societyReadLimiter,
+  societyComplaintLimiter,
+  societyMutationLimiter,
+} from '../../middleware/rateLimit.middleware.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: SocietyComplaints
- *   description: Society Complaint management APIs
- */
+router.post(
+  '/',
+  authenticate,
+  societyComplaintLimiter,
+  validateBody(createComplaintSchema),
+  requireSocietyMember,
+  societyComplaintController.createComplaint
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint:
- *   post:
- *     summary: Create a new society complaint
- *     tags: [SocietyComplaints]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *             properties:
- *               society_id:
- *                 type: integer
- *               user_id:
- *                 type: integer
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               status:
- *                 type: string
- *                 enum: [open, in_progress, resolved, closed]
- *               created_by:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Society complaint created successfully
- */
-router.post('/', societyComplaintController.createComplaint);
+router.get(
+  '/',
+  authenticate,
+  societyReadLimiter,
+  validateQuery(listComplaintQuerySchema),
+  requireSocietyMember,
+  societyComplaintController.getAllComplaints
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint:
- *   get:
- *     summary: Get all active society complaints
- *     tags: [SocietyComplaints]
- *     responses:
- *       200:
- *         description: A list of society complaints
- */
-router.get('/', societyComplaintController.getAllComplaints);
+router.get(
+  '/summary',
+  authenticate,
+  societyReadLimiter,
+  requireSocietyRole(['admin', 'committee']),
+  societyComplaintController.getComplaintSummary
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint/bulk-delete:
- *   post:
- *     summary: Bulk soft delete society complaints
- *     tags: [SocietyComplaints]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - ids
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: integer
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society complaints deleted successfully (bulk soft delete)
- */
-router.post('/bulk-delete', societyComplaintController.bulkDeleteComplaints);
+router.get(
+  '/:id',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyComplaintController.getComplaintById
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint/{id}:
- *   get:
- *     summary: Get a society complaint by ID
- *     tags: [SocietyComplaints]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Society complaint data
- *       404:
- *         description: Society complaint not found
- */
-router.get('/:id', societyComplaintController.getComplaintById);
+router.put(
+  '/:id/status',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  async (req, res, next) => {
+    try {
+      const complaint = await SocietyComplaint.findOne({ where: { id: req.params.id, is_deleted: false } });
+      if (!complaint) return errorResponse(res, 404, 'Society complaint not found');
+      req.body.society_id = complaint.society_id;
+      req.params.societyId = complaint.society_id;
+      
+      const actorUserId = req.user?.id || req.user?.userId;
+      const isCreatorAction = Number(complaint.user_id) === Number(actorUserId) && 
+        (req.body?.status === 'closed' || (['resolved', 'closed'].includes(complaint.status) && req.body?.status === 'open'));
+      if (isCreatorAction) {
+        req.isCreatorAction = true;
+        req.societyContext = { societyId: complaint.society_id };
+        return next();
+      }
+      return requireSocietyRole(['admin', 'committee'])(req, res, next);
+    } catch (err) {
+      return next(err);
+    }
+  },
+  validateBody(updateComplaintStatusSchema),
+  societyComplaintController.updateComplaintStatus
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint/{id}:
- *   put:
- *     summary: Update a society complaint
- *     tags: [SocietyComplaints]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               status:
- *                 type: string
- *                 enum: [open, in_progress, resolved, closed]
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society complaint updated successfully
- *       404:
- *         description: Society complaint not found
- */
-router.put('/:id', societyComplaintController.updateComplaint);
+router.put(
+  '/:id/assign',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  validateBody(assignComplaintSchema),
+  societyComplaintController.assignComplaint
+);
 
-/**
- * @swagger
- * /api/v1/society-complaint/{id}:
- *   delete:
- *     summary: Soft delete a society complaint
- *     tags: [SocietyComplaints]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Society complaint deleted successfully (soft delete)
- *       404:
- *         description: Society complaint not found
- */
-router.delete('/:id', societyComplaintController.deleteComplaint);
+
+router.get(
+  '/:id/history',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyComplaintController.getComplaintHistory
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin']),
+  societyComplaintController.deleteComplaint
+);
 
 export default router;

@@ -4,18 +4,32 @@ import { commonFields } from '../../utils/commonFields.js';
 import SocietyProfile from '../society_profile/society_profile.model.js';
 import User from '../user/user.model.js';
 
+export const POLL_STATUS = Object.freeze({
+  ACTIVE: 'active',
+  CLOSED: 'closed',
+});
+
 const SocietyPoll = sequelize.define('SocietyPoll', {
   pollId: {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true,
   },
+  id: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('pollId');
+    },
+    set(val) {
+      this.setDataValue('pollId', val);
+    },
+  },
   society_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
     references: {
       model: SocietyProfile,
-      key: 'societyProfileId',
+      key: 'id',
     },
   },
   created_by: {
@@ -31,7 +45,7 @@ const SocietyPoll = sequelize.define('SocietyPoll', {
     allowNull: false,
   },
   options: {
-    type: DataTypes.TEXT, // Store JSON stringified array of options
+    type: DataTypes.TEXT, // JSON array string of option strings
     allowNull: false,
   },
   status: {
@@ -42,17 +56,16 @@ const SocietyPoll = sequelize.define('SocietyPoll', {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  ...commonFields
+  ...commonFields,
 }, {
   timestamps: false,
   tableName: 'society_polls',
 });
 
-// Setup relationships
 SocietyPoll.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
-SocietyProfile.hasMany(SocietyPoll, { foreignKey: 'society_id' });
+SocietyProfile.hasMany(SocietyPoll, { foreignKey: 'society_id', as: 'polls' });
 
 SocietyPoll.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
-User.hasMany(SocietyPoll, { foreignKey: 'created_by' });
+User.hasMany(SocietyPoll, { foreignKey: 'created_by', as: 'society_polls' });
 
 export default SocietyPoll;

@@ -3,13 +3,7 @@ import * as notificationController from './notification.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
-
-router.get('/me', authenticate, notificationController.getMyNotifications);
-router.get('/me/unread-count', authenticate, notificationController.getUnreadCount);
-router.put('/me/read-all', authenticate, notificationController.markAllAsRead);
-router.patch('/me/read-all', authenticate, notificationController.markAllAsRead);
-router.put('/:id/read', authenticate, notificationController.markAsRead);
-router.patch('/:id/read', authenticate, notificationController.markAsRead);
+router.use(authenticate);
 
 /**
  * @swagger
@@ -66,6 +60,77 @@ router.post('/', notificationController.createNotification);
  *         description: A list of notifications
  */
 router.get('/', notificationController.getAllNotifications);
+
+/**
+ * @swagger
+ * /api/v1/notification/me:
+ *   get:
+ *     summary: Get the authenticated user's notifications (paginated, real-time)
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: unreadOnly
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: The user's notification feed with unread count
+ */
+router.get('/me', notificationController.getMyNotifications);
+
+/**
+ * @swagger
+ * /api/v1/notification/me/unread-count:
+ *   get:
+ *     summary: Get the authenticated user's unread notification count (badge poller)
+ *     tags: [Notifications]
+ *     responses:
+ *       200:
+ *         description: The unread notification count
+ */
+router.get('/me/unread-count', notificationController.getMyUnreadCount);
+
+/**
+ * @swagger
+ * /api/v1/notification/me/read-all:
+ *   patch:
+ *     summary: Mark all of the authenticated user's notifications as read
+ *     tags: [Notifications]
+ *     responses:
+ *       200:
+ *         description: Number of notifications marked as read
+ */
+router.patch('/me/read-all', notificationController.markAllNotificationsRead);
+router.put('/me/read-all', notificationController.markAllNotificationsRead);
+
+/**
+ * @swagger
+ * /api/v1/notification/{id}/read:
+ *   patch:
+ *     summary: Mark a single notification as read (owner only)
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Notification marked as read
+ *       404:
+ *         description: Notification not found
+ */
+router.patch('/:id/read', notificationController.markNotificationRead);
+router.patch('/:id/unread', notificationController.markNotificationUnread);
 
 /**
  * @swagger
@@ -165,7 +230,7 @@ router.get('/email', notificationController.getAllEmails);
  *       200:
  *         description: Notifications deleted successfully (bulk soft delete)
  */
-router.post('/bulk-delete', authenticate, notificationController.bulkDeleteNotifications);
+router.post('/bulk-delete', notificationController.bulkDeleteNotifications);
 
 /**
  * @swagger
@@ -246,7 +311,7 @@ router.put('/:id', notificationController.updateNotification);
  *       404:
  *         description: Notification not found
  */
-router.delete('/:id', authenticate, notificationController.deleteNotification);
+router.delete('/:id', notificationController.deleteNotification);
 
 
 

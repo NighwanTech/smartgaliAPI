@@ -1,5 +1,6 @@
 import express from 'express';
 import * as postCommentController from './post_comment.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -39,7 +40,27 @@ const router = express.Router();
  *       201:
  *         description: Post comment created successfully
  */
-router.post('/', postCommentController.createComment);
+router.post('/', authenticate, postCommentController.createComment);
+
+/**
+ * @swagger
+ * /api/v1/post-comment/by-post/{postId}:
+ *   get:
+ *     summary: Get all comments for a specific post
+ *     tags: [PostComments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Comments list for the post
+ */
+router.get('/by-post/:postId', authenticate, postCommentController.getCommentsByPost);
 
 /**
  * @swagger

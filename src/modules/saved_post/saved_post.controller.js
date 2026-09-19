@@ -1,9 +1,14 @@
-import { successResponse, errorResponse } from '../../utils/response.js';
+﻿import { successResponse, errorResponse } from '../../utils/response.js';
 import * as savedPostService from './saved_post.service.js';
 
 export const createSavedPost = async (req, res, next) => {
   try {
-    const savedPost = await savedPostService.createSavedPost(req.body);
+    const savedPostData = {
+      ...req.body,
+      user_id: req.user.id,
+      created_by: req.user.id,
+    };
+    const savedPost = await savedPostService.createSavedPost(savedPostData);
     return successResponse(res, 201, 'Saved post created successfully', savedPost);
   } catch (error) {
     next(error);
@@ -12,7 +17,7 @@ export const createSavedPost = async (req, res, next) => {
 
 export const getAllSavedPosts = async (req, res, next) => {
   try {
-    const savedPosts = await savedPostService.getAllSavedPosts();
+    const savedPosts = await savedPostService.getAllSavedPosts(req.user?.id);
     return successResponse(res, 200, 'Saved posts fetched successfully', savedPosts);
   } catch (error) {
     next(error);
@@ -21,7 +26,7 @@ export const getAllSavedPosts = async (req, res, next) => {
 
 export const getSavedPostById = async (req, res, next) => {
   try {
-    const savedPost = await savedPostService.getSavedPostById(req.params.id);
+    const savedPost = await savedPostService.getSavedPostById(req.params.id, req.user.id);
     if (!savedPost) {
       return errorResponse(res, 404, 'Saved post not found');
     }
@@ -33,7 +38,7 @@ export const getSavedPostById = async (req, res, next) => {
 
 export const updateSavedPost = async (req, res, next) => {
   try {
-    const savedPost = await savedPostService.updateSavedPost(req.params.id, req.body);
+    const savedPost = await savedPostService.updateSavedPost(req.params.id, req.user.id, req.body);
     if (!savedPost) {
       return errorResponse(res, 404, 'Saved post not found');
     }
@@ -45,8 +50,8 @@ export const updateSavedPost = async (req, res, next) => {
 
 export const deleteSavedPost = async (req, res, next) => {
   try {
-    const { deletedRemarks, updated_by } = req.body;
-    const savedPost = await savedPostService.softDeleteSavedPost(req.params.id, deletedRemarks, updated_by);
+    const { deletedRemarks, updated_by } = req.body || {};
+    const savedPost = await savedPostService.softDeleteSavedPost(req.params.id, deletedRemarks, updated_by, req.user?.id);
     if (!savedPost) {
       return errorResponse(res, 404, 'Saved post not found');
     }
@@ -62,7 +67,7 @@ export const bulkDeleteSavedPosts = async (req, res, next) => {
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return errorResponse(res, 400, 'Please provide an array of ids');
     }
-    const result = await savedPostService.bulkSoftDeleteSavedPosts(ids, deletedRemarks, updated_by);
+    const result = await savedPostService.bulkSoftDeleteSavedPosts(ids, req.user.id, deletedRemarks, updated_by);
     return successResponse(res, 200, 'Saved posts deleted successfully (bulk soft delete)', result);
   } catch (error) {
     next(error);

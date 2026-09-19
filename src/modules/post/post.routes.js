@@ -1,186 +1,85 @@
+﻿/**
+ * Post Routes - Phase 10 (Scalability Hardening)
+ */
 import express from 'express';
-import * as postController from './post.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import {
+  postCreateLimiter,
+  postLikeLimiter,
+  postCommentLimiter,
+  mediaUploadLimiter,
+  postShareLimiter,
+  postReportLimiter,
+  batchViewsLimiter,
+} from '../../middleware/rateLimit.middleware.js';
+import { postMediaUpload, validatePostMedia } from '../../utils/postMediaUpload.js';
+import {
+  create,
+  getOne,
+  getPostInsights,
+  recordBatchViews,
+  updatePost,
+  updateVisibility,
+  togglePin,
+  toggleComments,
+  like,
+  unlike,
+  comment,
+  listComments,
+  uploadMedia,
+  deletePost,
+  reportPost,
+} from './post.controller.js';
+import { requirePostReadAccess } from '../../middleware/postAccess.middleware.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: Posts
- *   description: Post management APIs
- */
+// All post routes require auth
+router.use(authenticate);
 
-/**
- * @swagger
- * /api/v1/post:
- *   post:
- *     summary: Create a new post
- *     tags: [Posts]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               user_id:
- *                 type: integer
- *               community_id:
- *                 type: integer
- *               type:
- *                 type: string
- *                 enum: [text, image, video, poll, event]
- *               content:
- *                 type: string
- *               media_url:
- *                 type: string
- *               location:
- *                 type: string
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               visibility:
- *                 type: string
- *                 enum: [public, private, friends, community]
- *               created_by:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Post created successfully
- */
-router.post('/', postController.createPost);
-router.post('/batch-views', postController.recordBatchViews);
+/** POST /api/v1/post/upload */
+router.post('/upload', mediaUploadLimiter, postMediaUpload.single('file'), validatePostMedia, uploadMedia);
 
-/**
- * @swagger
- * /api/v1/post:
- *   get:
- *     summary: Get all active posts
- *     tags: [Posts]
- *     responses:
- *       200:
- *         description: A list of posts
- */
-router.get('/', postController.getAllPosts);
-router.get('/home', postController.getAllPosts);
+/** POST /api/v1/post - Create new post */
+router.post('/', postCreateLimiter, create);
 
-/**
- * @swagger
- * /api/v1/post/bulk-delete:
- *   post:
- *     summary: Bulk soft delete posts
- *     tags: [Posts]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - ids
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: integer
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Posts deleted successfully (bulk soft delete)
- */
-router.post('/bulk-delete', postController.bulkDeletePosts);
+/** GET /api/v1/post/:id/insights - Live Post Insights & Analytics */
+router.get('/:id/insights', requirePostReadAccess, getPostInsights);
 
-/**
- * @swagger
- * /api/v1/post/{id}:
- *   get:
- *     summary: Get a post by ID
- *     tags: [Posts]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Post data
- *       404:
- *         description: Post not found
- */
-router.get('/:id', postController.getPostById);
+/** POST /api/v1/post/batch-views - Async viewport dwell-time ingestion (202 Accepted) */
+router.post('/batch-views', batchViewsLimiter, recordBatchViews);
 
-/**
- * @swagger
- * /api/v1/post/{id}:
- *   put:
- *     summary: Update a post
- *     tags: [Posts]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               type:
- *                 type: string
- *               content:
- *                 type: string
- *               media_url:
- *                 type: string
- *               location:
- *                 type: string
- *               visibility:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Post updated successfully
- *       404:
- *         description: Post not found
- */
-router.put('/:id', postController.updatePost);
+/** GET /api/v1/post/:id - Get post by ID */
+router.get('/:id', requirePostReadAccess, getOne);
 
-/**
- * @swagger
- * /api/v1/post/{id}:
- *   delete:
- *     summary: Soft delete a post
- *     tags: [Posts]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               deletedRemarks:
- *                 type: string
- *               updated_by:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Post deleted successfully (soft delete)
- *       404:
- *         description: Post not found
- */
-router.delete('/:id', postController.deletePost);
+/** PUT /api/v1/post/:id - Edit post content */
+router.put('/:id', updatePost);
+
+/** PATCH /api/v1/post/:id/visibility - Update audience / privacy */
+router.patch('/:id/visibility', updateVisibility);
+
+/** POST /api/v1/post/:id/pin - Pin/unpin post */
+router.post('/:id/pin', togglePin);
+
+/** POST /api/v1/post/:id/toggle-comments - Turn comments on/off */
+router.post('/:id/toggle-comments', toggleComments);
+
+/** POST /api/v1/post/:id/like - Like a post */
+router.post('/:id/like', postLikeLimiter, requirePostReadAccess, like);
+
+/** DELETE /api/v1/post/:id/like - Unlike a post */
+router.delete('/:id/like', postLikeLimiter, requirePostReadAccess, unlike);
+
+/** POST /api/v1/post/:id/comment - Add comment */
+router.post('/:id/comment', postCommentLimiter, requirePostReadAccess, comment);
+
+/** GET /api/v1/post/:id/comments - List comments (cursor paginated) */
+router.get('/:id/comments', requirePostReadAccess, listComments);
+
+/** DELETE /api/v1/post/:id - Soft delete own post */
+router.delete('/:id', deletePost);
+
+/** POST /api/v1/post/:id/report - Report a post */
+router.post('/:id/report', postReportLimiter, reportPost);
 
 export default router;

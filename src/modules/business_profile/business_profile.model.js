@@ -2,7 +2,6 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
-import BusinessCategory from '../business_category/business_category.model.js';
 
 const BusinessProfile = sequelize.define('BusinessProfile', {
   id: {
@@ -10,17 +9,21 @@ const BusinessProfile = sequelize.define('BusinessProfile', {
     primaryKey: true,
     autoIncrement: true,
   },
-  user_id: {
+  // Maps JS 'userId' → DB column 'user_id' to match existing table
+  userId: {
     type: DataTypes.BIGINT,
-    allowNull: true,
+    allowNull: false,
+    unique: true,
+    field: 'user_id',   // ← THIS is the critical fix
     references: {
       model: User,
       key: 'userId',
     }
   },
-  business_name: {
+  businessName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
+    field: 'business_name',
   },
   operatingHours: {
     type: DataTypes.STRING,
@@ -39,7 +42,7 @@ const BusinessProfile = sequelize.define('BusinessProfile', {
     allowNull: true,
   },
   availabilityDays: {
-    type: DataTypes.TEXT,
+    type: DataTypes.JSON,
     allowNull: true,
   },
   ...commonFields
@@ -49,6 +52,7 @@ const BusinessProfile = sequelize.define('BusinessProfile', {
 });
 
 // Setup relationships
-BusinessProfile.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+BusinessProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasOne(BusinessProfile, { foreignKey: 'userId', as: 'businessProfile' });
 
 export default BusinessProfile;

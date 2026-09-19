@@ -44,6 +44,7 @@ const router = express.Router();
  *         description: Business review added successfully
  */
 router.post('/', authenticate, businessReviewController.createReview);
+router.post('/:id/reply', authenticate, businessReviewController.replyReview);
 
 /**
  * @swagger
@@ -56,24 +57,6 @@ router.post('/', authenticate, businessReviewController.createReview);
  *         description: A list of business reviews
  */
 router.get('/', businessReviewController.getAllReviews);
-
-/**
- * @swagger
- * /api/v1/business-review/business/{businessId}:
- *   get:
- *     summary: Get business reviews by Business ID
- *     tags: [BusinessReviews]
- *     parameters:
- *       - in: path
- *         name: businessId
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: A list of business reviews
- */
-router.get('/business/:businessId', businessReviewController.getReviewsByBusinessId);
 
 /**
  * @swagger
@@ -157,40 +140,5 @@ router.put('/:id', businessReviewController.updateReview);
  *         description: Business review not found
  */
 router.delete('/:id', businessReviewController.deleteReview);
-
-/**
- * @swagger
- * /api/v1/business-review/{id}/reply:
- *   post:
- *     summary: Reply to a business review (owner only)
- *     tags: [BusinessReviews]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - reply
- *             properties:
- *               reply:
- *                 type: string
- *     responses:
- *       200:
- *         description: Response posted successfully
- *       403:
- *         description: Not authorized to reply
- *       404:
- *         description: Review not found
- */
-router.post('/:id/reply', authenticate, businessReviewController.replyToReview);
 
 export default router;

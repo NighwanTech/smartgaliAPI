@@ -10,12 +10,21 @@ const SocietyParking = sequelize.define('SocietyParking', {
     primaryKey: true,
     autoIncrement: true,
   },
+  id: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('parkingId');
+    },
+    set(val) {
+      this.setDataValue('parkingId', val);
+    },
+  },
   society_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
     references: {
       model: SocietyProfile,
-      key: 'societyProfileId',
+      key: 'id',
     },
   },
   user_id: {
@@ -50,17 +59,16 @@ const SocietyParking = sequelize.define('SocietyParking', {
     type: DataTypes.ENUM('active', 'inactive'),
     defaultValue: 'active',
   },
-  ...commonFields
+  ...commonFields,
 }, {
   timestamps: false,
   tableName: 'society_parkings',
 });
 
-// Setup relationships
 SocietyParking.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
-SocietyProfile.hasMany(SocietyParking, { foreignKey: 'society_id' });
+SocietyProfile.hasMany(SocietyParking, { foreignKey: 'society_id', as: 'parkings' });
 
 SocietyParking.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
-User.hasMany(SocietyParking, { foreignKey: 'user_id' });
+User.hasMany(SocietyParking, { foreignKey: 'user_id', as: 'parkings' });
 
 export default SocietyParking;

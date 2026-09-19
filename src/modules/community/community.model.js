@@ -9,14 +9,17 @@ const Community = sequelize.define('Community', {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true,
+    field: 'communityId',
   },
   communityName: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
+    field: 'communityName',
   },
   communityDescription: {
     type: DataTypes.TEXT,
     allowNull: true,
+    field: 'communityDescription',
   },
   category_id: {
     type: DataTypes.BIGINT,
@@ -27,19 +30,52 @@ const Community = sequelize.define('Community', {
     }
   },
   cover_image: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
+  icon: {
+    type: DataTypes.STRING(500),
     allowNull: true,
   },
   is_private: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  rules: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  members_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
+  posts_count: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  // Geo discovery fields (Phase 6)
+  latitude: {
+    type: DataTypes.DECIMAL(10, 8),
+    allowNull: true,
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(11, 8),
+    allowNull: true,
+  },
+  location_name: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  discovery_radius: {
+    type: DataTypes.DECIMAL(6, 2),
+    defaultValue: 25.00, // default 25km radius
+    allowNull: false,
+  },
   status: {
-    type: DataTypes.ENUM('active', 'inactive', 'pending'),
+    type: DataTypes.ENUM('active', 'inactive', 'pending', 'blocked'),
     defaultValue: 'active',
   },
   ...commonFields,
-  // Overriding created_by from commonFields to be a BIGINT Foreign Key as requested
   created_by: {
     type: DataTypes.BIGINT,
     allowNull: true,
@@ -51,9 +87,14 @@ const Community = sequelize.define('Community', {
 }, {
   timestamps: false,
   tableName: 'communities',
+  indexes: [
+    { fields: ['status', 'is_deleted', 'category_id'] },
+    { fields: ['category_id'] },
+    { fields: ['created_by'] },
+    { fields: ['latitude', 'longitude'] },
+  ],
 });
 
-// Setup relationships
 Community.belongsTo(CommunityCategory, { foreignKey: 'category_id', as: 'category' });
 CommunityCategory.hasMany(Community, { foreignKey: 'category_id' });
 

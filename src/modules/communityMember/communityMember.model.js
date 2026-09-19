@@ -9,6 +9,7 @@ const CommunityMember = sequelize.define('CommunityMember', {
     type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true,
+    field: 'communityMemberId',
   },
   community_id: {
     type: DataTypes.BIGINT,
@@ -42,9 +43,13 @@ const CommunityMember = sequelize.define('CommunityMember', {
 }, {
   timestamps: false,
   tableName: 'community_members',
+  indexes: [
+    { unique: true, fields: ['community_id', 'user_id'] },
+    { fields: ['user_id', 'status'] },
+    { fields: ['community_id', 'status', 'role'] },
+  ],
 });
 
-// Setup relationships
 CommunityMember.belongsTo(Community, { foreignKey: 'community_id', as: 'community' });
 Community.hasMany(CommunityMember, { foreignKey: 'community_id' });
 

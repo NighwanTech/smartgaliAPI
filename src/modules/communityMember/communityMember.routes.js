@@ -1,5 +1,6 @@
 import express from 'express';
-import * as communityMemberController from './communityMember.controller.js';
+import { authenticate } from '../../middleware/auth.middleware.js';
+import { errorResponse } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -40,7 +41,14 @@ const router = express.Router();
  *       201:
  *         description: Community Member added successfully
  */
-router.post('/', communityMemberController.createCommunityMember);
+const gone = (_req, res) => errorResponse(
+  res,
+  410,
+  'Legacy community-member CRUD is disabled. Use /communities/:id/members and membership actions.',
+);
+
+router.use(authenticate);
+router.post('/', gone);
 
 /**
  * @swagger
@@ -52,7 +60,7 @@ router.post('/', communityMemberController.createCommunityMember);
  *       200:
  *         description: A list of community members
  */
-router.get('/', communityMemberController.getAllCommunityMembers);
+router.get('/', gone);
 
 /**
  * @swagger
@@ -72,7 +80,7 @@ router.get('/', communityMemberController.getAllCommunityMembers);
  *       404:
  *         description: Community Member not found
  */
-router.get('/:id', communityMemberController.getCommunityMemberById);
+router.get('/:id', gone);
 
 /**
  * @swagger
@@ -105,7 +113,7 @@ router.get('/:id', communityMemberController.getCommunityMemberById);
  *       404:
  *         description: Community Member not found
  */
-router.put('/:id', communityMemberController.updateCommunityMember);
+router.put('/:id', gone);
 
 /**
  * @swagger
@@ -135,6 +143,6 @@ router.put('/:id', communityMemberController.updateCommunityMember);
  *       404:
  *         description: Community Member not found
  */
-router.delete('/:id', communityMemberController.deleteCommunityMember);
+router.delete('/:id', gone);
 
 export default router;

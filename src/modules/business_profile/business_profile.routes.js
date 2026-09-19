@@ -51,24 +51,9 @@ const router = express.Router();
  *       201:
  *         description: Business profile created successfully
  */
-router.post('/', authenticate, uploadImage('business').single('logo'), businessProfileController.createProfile);
-
-/**
- * @swagger
- * /api/v1/business-profile/me:
- *   get:
- *     summary: Get business profile of authenticated user
- *     tags: [BusinessProfiles]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Business profile of authenticated user
- *       404:
- *         description: Business profile not found
- */
 router.get('/me', authenticate, businessProfileController.getMyProfile);
 router.get('/dashboard-stats', authenticate, businessProfileController.getDashboardStats);
+router.post('/', authenticate, uploadImage('business').single('logo'), businessProfileController.createProfile);
 
 /**
  * @swagger
