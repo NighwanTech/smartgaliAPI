@@ -1,6 +1,5 @@
 import express from 'express';
 import * as serviceProviderProfileController from './service_provider_profile.controller.js';
-import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -42,7 +41,6 @@ const router = express.Router();
  *       201:
  *         description: Service provider profile created successfully
  */
-router.get('/earnings', authenticate, serviceProviderProfileController.getEarnings);
 router.post('/', serviceProviderProfileController.createProfile);
 
 /**
@@ -99,6 +97,10 @@ router.get('/status/pending-verification', serviceProviderProfileController.getP
  *         description: Service provider profiles deleted successfully (bulk soft delete)
  */
 router.post('/bulk-delete', serviceProviderProfileController.bulkDeleteProfiles);
+
+import { authenticate } from '../../middleware/auth.middleware.js';
+
+router.get('/earnings', authenticate, serviceProviderProfileController.getEarnings);
 
 /**
  * @swagger

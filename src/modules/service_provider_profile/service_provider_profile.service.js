@@ -61,13 +61,15 @@ export const verifyProfile = async (id, updated_by) => {
   return await profile.update({ is_verified: true, updated_by, updatedAt: new Date() });
 };
 
-export const getEarningsByUserId = async (userId) => {
-  const profile = await ServiceProviderProfile.findOne({ where: { user_id: userId, is_deleted: false } });
-  if (!profile) return null;
+export const getEarningsByUserId = async (user_id) => {
+  const profile = await ServiceProviderProfile.findOne({ where: { user_id, is_deleted: false } });
   return {
     totalEarnings: 0,
-    completedBookings: 0,
-    providerId: profile.id,
+    completedServicesCount: 0,
+    earningsHistory: [],
+    profileId: profile ? profile.id : null,
   };
 };
+
+
 

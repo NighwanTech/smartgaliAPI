@@ -73,3 +73,13 @@ export const replyReview = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getReviewsByBusinessId = async (req, res, next) => {
+  try {
+    const reviews = await businessReviewService.getReviewsByBusinessId(req.params.id);
+    return successResponse(res, 200, 'Business reviews fetched successfully', reviews);
+  } catch (error) {
+    next(error);
+  }
+};
+

@@ -37,3 +37,14 @@ export const softDeleteReview = async (id, deletedRemarks, updated_by) => {
   if (!review) return null;
   return await review.update({ is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() });
 };
+
+export const getReviewsByBusinessId = async (business_id) => {
+  return await BusinessReview.findAll({
+    where: { business_id, is_deleted: false },
+    include: [
+      { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+    ]
+  });
+};
+

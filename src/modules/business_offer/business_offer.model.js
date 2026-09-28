@@ -12,7 +12,6 @@ const BusinessOffer = sequelize.define('BusinessOffer', {
   business_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
-    field: 'business_id',
     references: {
       model: BusinessProfile,
       key: 'id',

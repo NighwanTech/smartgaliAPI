@@ -1,5 +1,9 @@
-import Joi from 'joi';
-import { ANNOUNCEMENT_PRIORITY } from '../society_announcement/society_announcement.model.js';
+﻿import Joi from 'joi';
+import {
+  ANNOUNCEMENT_PRIORITY,
+  ANNOUNCEMENT_STATUS,
+  ANNOUNCEMENT_AUDIENCE,
+} from '../society_announcement/society_announcement.model.js';
 import { COMPLAINT_STATUS, COMPLAINT_PRIORITY } from '../society_complaint/society_complaint.model.js';
 import { VISITOR_STATUS } from '../society_visitor/society_visitor.model.js';
 import { SOCIETY_MEMBER_ROLE, SOCIETY_MEMBER_STATUS } from '../society_member/society_member.model.js';
@@ -7,12 +11,12 @@ import { SOCIETY_MEMBER_ROLE, SOCIETY_MEMBER_STATUS } from '../society_member/so
 const id = Joi.number().integer().positive();
 const pageQuery = {
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  limit: Joi.number().integer().min(1).max(500).default(20),
   cursor: Joi.number().integer().positive().optional(),
   search: Joi.string().trim().max(120).allow('').optional(),
 };
 
-// ── Params Schemas ────────────────────────────────────────────────────────────
+// â”€â”€ Params Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const idParamSchema = Joi.object({
   id: id.required(),
 });
@@ -22,7 +26,7 @@ export const societyIdParamSchema = Joi.object({
   id: id.optional(),
 });
 
-// ── Society Profile Schemas ───────────────────────────────────────────────────
+// â”€â”€ Society Profile Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createSocietyProfileSchema = Joi.object({
   society_name: Joi.string().trim().min(3).max(255).required().messages({
     'string.empty': 'Society name is required',
@@ -48,11 +52,15 @@ export const listSocietyProfileQuerySchema = Joi.object({
   ...pageQuery,
 });
 
-// ── Society Member Schemas ────────────────────────────────────────────────────
+// â”€â”€ Society Member Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createSocietyMemberSchema = Joi.object({
   society_id: id.required(),
+  user_id: id.optional(),
+  phone: Joi.string().trim().max(20).optional(),
   flat_no: Joi.string().trim().max(50).allow('', null).optional(),
   role: Joi.string().valid(...Object.values(SOCIETY_MEMBER_ROLE)).default(SOCIETY_MEMBER_ROLE.MEMBER),
+  trade: Joi.string().trim().max(100).allow('', null).optional(),
+  status: Joi.string().valid(...Object.values(SOCIETY_MEMBER_STATUS || {})).optional(),
 });
 
 export const updateSocietyMemberSchema = Joi.object({
@@ -63,6 +71,7 @@ export const updateSocietyMemberSchema = Joi.object({
 
 export const updateMemberRoleSchema = Joi.object({
   role: Joi.string().valid(...Object.values(SOCIETY_MEMBER_ROLE)).required(),
+  remark: Joi.string().trim().max(255).allow('', null).optional(),
 });
 
 export const memberApprovalSchema = Joi.object({
@@ -81,12 +90,22 @@ export const listSocietyMemberQuerySchema = Joi.object({
   status: Joi.string().valid(...Object.values(SOCIETY_MEMBER_STATUS)).optional(),
 });
 
-// ── Society Announcement Schemas ──────────────────────────────────────────────
+// â”€â”€ Society Announcement Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export const announcementAttachmentSchema = Joi.object({
+  file_url: Joi.string().trim().required(),
+  file_name: Joi.string().trim().max(255).allow('', null).optional(),
+  file_type: Joi.string().trim().max(100).allow('', null).optional(),
+  file_size: Joi.number().integer().min(0).allow(null).optional(),
+});
+
 export const createAnnouncementSchema = Joi.object({
   society_id: id.required(),
   title: Joi.string().trim().min(3).max(255).required(),
+  summary: Joi.string().trim().max(500).allow('', null).optional(),
   message: Joi.string().trim().max(10000),
   content: Joi.string().trim().max(10000),
+  action_text: Joi.string().trim().max(500).allow('', null).optional(),
+  audience: Joi.string().valid(...Object.values(ANNOUNCEMENT_AUDIENCE)).default(ANNOUNCEMENT_AUDIENCE.ENTIRE_SOCIETY),
   priority: Joi.string().valid(...Object.values(ANNOUNCEMENT_PRIORITY)).default(ANNOUNCEMENT_PRIORITY.MEDIUM),
   category: Joi.string().trim().max(100).default('general'),
   sub_category: Joi.string().trim().max(100).allow('', null).optional(),
@@ -94,12 +113,19 @@ export const createAnnouncementSchema = Joi.object({
   flat_no: Joi.string().trim().max(50).allow('', null).optional(),
   exact_location: Joi.string().trim().max(255).allow('', null).optional(),
   is_pinned: Joi.boolean().default(false),
+  status: Joi.string().valid(...Object.values(ANNOUNCEMENT_STATUS)).default(ANNOUNCEMENT_STATUS.PUBLISHED),
+  publish_at: Joi.date().iso().allow(null).optional(),
   expires_at: Joi.date().iso().allow(null).optional(),
+  attachments: Joi.array().items(announcementAttachmentSchema).allow(null).optional(),
 });
 
 export const updateAnnouncementSchema = Joi.object({
   title: Joi.string().trim().min(3).max(255).optional(),
+  summary: Joi.string().trim().max(500).allow('', null).optional(),
   message: Joi.string().trim().max(10000).optional(),
+  content: Joi.string().trim().max(10000).optional(),
+  action_text: Joi.string().trim().max(500).allow('', null).optional(),
+  audience: Joi.string().valid(...Object.values(ANNOUNCEMENT_AUDIENCE)).optional(),
   priority: Joi.string().valid(...Object.values(ANNOUNCEMENT_PRIORITY)).optional(),
   category: Joi.string().trim().max(100).optional(),
   sub_category: Joi.string().trim().max(100).allow('', null).optional(),
@@ -107,7 +133,11 @@ export const updateAnnouncementSchema = Joi.object({
   flat_no: Joi.string().trim().max(50).allow('', null).optional(),
   exact_location: Joi.string().trim().max(255).allow('', null).optional(),
   is_pinned: Joi.boolean().optional(),
+  status: Joi.string().valid(...Object.values(ANNOUNCEMENT_STATUS)).optional(),
+  publish_at: Joi.date().iso().allow(null).optional(),
   expires_at: Joi.date().iso().allow(null).optional(),
+  attachments: Joi.array().items(announcementAttachmentSchema).allow(null).optional(),
+  deletedRemarks: Joi.string().trim().max(500).allow('', null).optional(),
 }).min(1);
 
 export const listAnnouncementQuerySchema = Joi.object({
@@ -115,11 +145,19 @@ export const listAnnouncementQuerySchema = Joi.object({
   society_id: id.optional(),
   priority: Joi.string().valid(...Object.values(ANNOUNCEMENT_PRIORITY)).optional(),
   category: Joi.string().trim().max(100).optional(),
+  status: Joi.string().valid(...Object.values(ANNOUNCEMENT_STATUS), 'all').optional(),
+  audience: Joi.string().valid(...Object.values(ANNOUNCEMENT_AUDIENCE)).optional(),
   is_pinned: Joi.boolean().optional(),
   include_expired: Joi.boolean().default(false),
 });
 
-// ── Society Complaint Schemas ─────────────────────────────────────────────────
+export const bulkDeleteAnnouncementSchema = Joi.object({
+  ids: Joi.array().items(id).min(1).required(),
+  society_id: id.optional(),
+  deletedRemarks: Joi.string().trim().max(500).allow('', null).optional(),
+});
+
+// â”€â”€ Society Complaint Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createComplaintSchema = Joi.object({
   society_id: id.required(),
   title: Joi.string().trim().min(3).max(255).required(),
@@ -152,6 +190,7 @@ export const updateComplaintStatusSchema = Joi.object({
 
 export const assignComplaintSchema = Joi.object({
   assigned_to: id.required(),
+  reason: Joi.string().trim().max(500).allow('', null).optional(),
 });
 
 export const listComplaintQuerySchema = Joi.object({
@@ -166,7 +205,7 @@ export const listComplaintQuerySchema = Joi.object({
   my_only: Joi.boolean().default(false),
 });
 
-// ── Society Facility Schemas ──────────────────────────────────────────────────
+// â”€â”€ Society Facility Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createFacilitySchema = Joi.object({
   society_id: id.required(),
   name: Joi.string().trim().min(2).max(255).required(),
@@ -191,7 +230,7 @@ export const listFacilityQuerySchema = Joi.object({
   is_active: Joi.boolean().optional(),
 });
 
-// ── Society Parking Schemas ───────────────────────────────────────────────────
+// â”€â”€ Society Parking Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createParkingSchema = Joi.object({
   society_id: id.required(),
   user_id: id.allow(null).optional(),
@@ -221,7 +260,7 @@ export const listParkingQuerySchema = Joi.object({
   status: Joi.string().valid('active', 'inactive').optional(),
 });
 
-// ── Society Poll Schemas ──────────────────────────────────────────────────────
+// â”€â”€ Society Poll Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createPollSchema = Joi.object({
   society_id: id.required(),
   question: Joi.string().trim().min(3).max(500).required(),
@@ -245,16 +284,35 @@ export const listPollQuerySchema = Joi.object({
   status: Joi.string().valid('active', 'closed').optional(),
 });
 
-// ── Society Visitor Schemas ───────────────────────────────────────────────────
+// â”€â”€ Society Visitor Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createVisitorSchema = Joi.object({
   society_id: id.required(),
   visitor_name: Joi.string().trim().min(2).max(100).required(),
   visitor_phone: Joi.string().trim().max(20).allow('', null).optional(),
+  phone_number: Joi.string().trim().max(20).allow('', null).optional(),
   purpose: Joi.string().trim().max(255).allow('', null).optional(),
   vehicle_no: Joi.string().trim().max(50).allow('', null).optional(),
+  vehicle_number: Joi.string().trim().max(50).allow('', null).optional(),
+  driver_name: Joi.string().trim().max(100).allow('', null).optional(),
+  cab_number: Joi.string().trim().max(50).allow('', null).optional(),
+  service_category: Joi.string().trim().max(100).allow('', null).optional(),
+  worker_type: Joi.string().trim().max(100).allow('', null).optional(),
   flat_no: Joi.string().trim().max(50).allow('', null).optional(),
   expected_time: Joi.date().iso().allow(null).optional(),
   status: Joi.string().valid(...Object.values(VISITOR_STATUS)).default(VISITOR_STATUS.EXPECTED),
+  visitor_type: Joi.string().valid('guest', 'delivery', 'cab', 'service', 'vendor', 'worker', 'domestic_worker', 'other').optional(),
+  company_name: Joi.string().trim().max(100).allow('', null).optional(),
+  vehicle_type: Joi.string().valid('two_wheeler', '2_wheeler', 'four_wheeler', '4_wheeler', 'commercial', 'none', 'other').optional(),
+  entry_type: Joi.string().valid('expected', 'walk_in', 'guard_entry').optional(),
+  gate_id: id.allow(null).optional(),
+  guard_id: id.allow(null).optional(),
+  user_id: id.allow(null).optional(),
+  host_resident_id: id.allow(null).optional(),
+  host_resident: Joi.string().trim().allow('', null).optional(),
+  id_type: Joi.string().valid('aadhaar', 'driving_license', 'voter_id', 'passport', 'other').allow(null).optional(),
+  id_number: Joi.string().trim().max(100).allow('', null).optional(),
+  check_in_time: Joi.date().iso().allow(null).optional(),
+  check_out_time: Joi.date().iso().allow(null).optional(),
 });
 
 export const updateVisitorSchema = Joi.object({
@@ -277,7 +335,7 @@ export const listVisitorQuerySchema = Joi.object({
   status: Joi.string().valid(...Object.values(VISITOR_STATUS)).optional(),
   flat_no: Joi.string().trim().max(50).optional(),
 });
-// ── Society Document Schemas ───────────────────────────────────────────────────
+// â”€â”€ Society Document Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createDocumentSchema = Joi.object({
   society_id: id.optional(),
   title: Joi.string().trim().min(2).max(255).required(),
@@ -301,7 +359,7 @@ export const listDocumentQuerySchema = Joi.object({
   search: Joi.string().trim().allow('', null).optional(),
 });
 
-// ── Society Emergency Contact Schemas ──────────────────────────────────────────
+// â”€â”€ Society Emergency Contact Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createEmergencyContactSchema = Joi.object({
   society_id: id.optional(),
   name: Joi.string().trim().min(2).max(150).required(),
@@ -324,3 +382,4 @@ export const emergencyAlertSchema = Joi.object({
   message: Joi.string().trim().min(5).max(1000).required(),
   severity: Joi.string().valid('critical', 'high', 'medium', 'low').default('critical'),
 });
+

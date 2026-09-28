@@ -1,3 +1,6 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import { logger } from './utils/logger.js';
 import http from 'http';
 import app from './app.js';
@@ -14,6 +17,7 @@ import './modules/message_deletion/message_deletion.model.js';
 import './modules/audit_log/audit_log.model.js';
 import './modules/outbox/outbox_event.model.js';
 import './modules/user_devices/user_device.model.js';
+import './modules/complaint_master/index.js';
 let httpServer;
 let io;
 let shuttingDown = false;

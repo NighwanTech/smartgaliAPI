@@ -155,7 +155,8 @@ router.put('/:id', businessOfferController.updateOffer);
  *       404:
  *         description: Business offer not found
  */
-router.get('/business/:id', businessOfferController.getOffersByBusinessId);
 router.delete('/:id', businessOfferController.deleteOffer);
+
+router.get('/business/:id', businessOfferController.getOffersByBusinessId);
 
 export default router;

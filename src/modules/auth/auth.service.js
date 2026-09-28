@@ -137,13 +137,8 @@ export const signup = async ({ name, mobile, email }) => {
     mobile: cleanMobile,
     expires_at: new Date(Date.now() + PENDING_TTL_MS),
   });
-  try {
-    await sendNewOtp({ email: cleanEmail, purpose: 'signup', pendingSignupId: pending.id });
-  } catch (error) {
-    await pending.destroy().catch(() => {});
-    throw error;
-  }
-  return { email: cleanEmail, expiresIn: '5m' };
+  const otpRes = await sendNewOtp({ email: cleanEmail, purpose: 'signup', pendingSignupId: pending.id });
+  return { email: cleanEmail, expiresIn: '5m', ...(otpRes.rawOtp ? { devOtp: otpRes.rawOtp } : {}) };
 };
 
 export const verifySignupOtp = async ({ email, otp }) => {

@@ -83,12 +83,6 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('active', 'inactive', 'pending'),
     defaultValue: 'active',
   },
-  profile_image: {
-    type: DataTypes.VIRTUAL,
-    get() {
-      return this.profile?.avatarUrl || null;
-    }
-  },
   ...commonFields
 }, {
   timestamps: false,

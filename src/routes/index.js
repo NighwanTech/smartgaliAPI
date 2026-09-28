@@ -54,6 +54,18 @@ import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 import profileRoutes from '../modules/profile/profile.routes.js';
 import authRoutes from '../modules/auth/auth.routes.js';
 import deviceRoutes from '../modules/user_devices/user_device.routes.js';
+import societyGateRoutes from '../modules/society_gate/society_gate.routes.js';
+import societySecurityRoutes from '../modules/society_security/society_security.routes.js';
+import societyGuardRoutes from '../modules/society_guard/society_guard.routes.js';
+import societyShiftRoutes from '../modules/society_shift/society_shift.routes.js';
+import societyWorkerRoutes from '../modules/society_worker/society_worker.routes.js';
+import societyCommitteeRoutes from '../modules/society_committee/society_committee.routes.js';
+import complaintMasterRoutes, {
+  categoryRouter,
+  subCategoryRouter,
+  locationTypeRouter,
+} from '../modules/complaint_master/complaint_master.routes.js';
+import superAdminComplaintRoutes from '../modules/society_complaint/super_admin_complaint.routes.js';
 import { generalApiLimiter } from '../middleware/rateLimit.middleware.js';
 
 const router = express.Router();
@@ -127,7 +139,24 @@ router.use('/admin-dashboard', adminDashboardRoutes);
 router.use('/ad-banner', adBannerRoutes);
 router.use('/ad-campaign', adCampaignRoutes);
 router.use('/ad-sponsored', adSponsoredRoutes);
-router.use('/analytics', analyticsRoutes);
+
+router.use('/society-gate', societyGateRoutes);
+router.use('/society-security', societySecurityRoutes);
+router.use('/society-guard', societyGuardRoutes);
+router.use('/society-shift', societyShiftRoutes);
+router.use('/society-worker', societyWorkerRoutes);
+router.use('/society-committee', societyCommitteeRoutes);
+
+// Complaint Masters (Resident queries & Super Admin management)
+router.use('/complaint-masters', complaintMasterRoutes);
+router.use('/complaint-categories', categoryRouter);
+router.use('/complaint-sub-categories', subCategoryRouter);
+router.use('/complaint-location-types', locationTypeRouter);
+
+// Super Admin Platform Oversight Routes
+router.use('/super-admin/complaints', superAdminComplaintRoutes);
+router.use('/admin/complaints', superAdminComplaintRoutes);
+router.use('/admin/complaint-masters', complaintMasterRoutes);
 
 // Health check route
 router.get('/health', (req, res) => {

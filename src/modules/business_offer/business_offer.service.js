@@ -35,11 +35,12 @@ export const softDeleteOffer = async (id, deletedRemarks, updated_by) => {
   return await offer.update({ is_deleted: true, deletedRemarks, updated_by, updatedAt: new Date() });
 };
 
-export const getOffersByBusinessId = async (businessId) => {
+export const getOffersByBusinessId = async (business_id) => {
   return await BusinessOffer.findAll({
-    where: { business_id: businessId, is_deleted: false },
+    where: { business_id, is_deleted: false },
     include: [
       { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] }
     ]
   });
 };
+
