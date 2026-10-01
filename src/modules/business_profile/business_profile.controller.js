@@ -24,6 +24,11 @@ export const createProfile = async (req, res, next) => {
     if (req.file) {
       data.logo = getImageUrl(req, req.file, 'business');
     }
+    if ((data.phone && !/^\d{10}$/.test(data.phone)) || 
+        (data.contactPhone && !/^\d{10}$/.test(data.contactPhone)) || 
+        (data.whatsappNumber && !/^\d{10}$/.test(data.whatsappNumber))) {
+      return errorResponse(res, 400, 'Phone number must be exactly 10 numeric digits');
+    }
     const profile = await businessProfileService.createProfile(data);
     return successResponse(res, 201, 'Business profile created successfully', formatProfile(profile));
   } catch (error) {
@@ -61,6 +66,11 @@ export const updateProfile = async (req, res, next) => {
     }
     if (req.file) {
       data.logo = getImageUrl(req, req.file, 'business');
+    }
+    if ((data.phone && !/^\d{10}$/.test(data.phone)) || 
+        (data.contactPhone && !/^\d{10}$/.test(data.contactPhone)) || 
+        (data.whatsappNumber && !/^\d{10}$/.test(data.whatsappNumber))) {
+      return errorResponse(res, 400, 'Phone number must be exactly 10 numeric digits');
     }
     const profile = await businessProfileService.updateProfile(req.params.id, data);
     if (!profile) {

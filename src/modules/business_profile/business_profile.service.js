@@ -84,15 +84,27 @@ export const getProfileByUserId = async (userId) => {
 export const getDashboardStats = async (userId) => {
   const profile = await BusinessProfile.findOne({ where: { userId, is_deleted: false } });
   if (!profile) {
-    return { activeOffers: 0, activeOffersCount: 0, totalReviews: 0, averageRating: 0 };
+    return { activeOffers: 0, activeOffersCount: 0, totalReviews: 0, averageRating: 0, views7d: 0, newLeads: 0 };
   }
   const offersCount = await BusinessOffer.count({ where: { business_id: profile.id, is_deleted: false } });
-  const reviewsCount = await BusinessReview.count({ where: { business_id: profile.id, is_deleted: false } });
+  
+  // Calculate total reviews and average rating
+  const reviews = await BusinessReview.findAll({ 
+    where: { business_id: profile.id, is_deleted: false },
+    attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'averageRating'], [sequelize.fn('COUNT', sequelize.col('id')), 'totalReviews']],
+    raw: true
+  });
+  
+  const totalReviews = reviews[0]?.totalReviews ? parseInt(reviews[0].totalReviews, 10) : 0;
+  const averageRating = reviews[0]?.averageRating ? parseFloat(reviews[0].averageRating).toFixed(1) : 0;
+
   return {
     activeOffers: offersCount,
     activeOffersCount: offersCount,
-    totalReviews: reviewsCount,
-    averageRating: 0,
+    totalReviews: totalReviews,
+    averageRating: Number(averageRating),
+    views7d: profile.views_7d || 0, // Fallbacks for frontend
+    newLeads: profile.new_leads || 0,
     businessId: profile.id,
   };
 };

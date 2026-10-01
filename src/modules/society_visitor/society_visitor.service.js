@@ -102,6 +102,13 @@ export const createVisitor = async (societyId, callerUserId, data, meta = {}) =>
 
     const isPreApproved = data.status === 'expected' || data.status === 'approved' || data.entry_type === 'expected';
 
+    const phone = data.visitor_phone || data.phone_number;
+    if (phone && !/^\d{10}$/.test(phone)) {
+      const err = new Error('Visitor phone number must be exactly 10 numeric digits');
+      err.statusCode = 400;
+      throw err;
+    }
+
     const visitor = await SocietyVisitor.create({
       society_id: societyId,
       user_id: hostUserId,

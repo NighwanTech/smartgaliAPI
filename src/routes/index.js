@@ -141,6 +141,7 @@ router.use('/ad-campaign', adCampaignRoutes);
 router.use('/ad-sponsored', adSponsoredRoutes);
 
 router.use('/society-gate', societyGateRoutes);
+router.use('/society-gates', societyGateRoutes);
 router.use('/society-security', societySecurityRoutes);
 router.use('/society-guard', societyGuardRoutes);
 router.use('/society-shift', societyShiftRoutes);

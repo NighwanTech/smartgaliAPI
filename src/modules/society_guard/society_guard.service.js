@@ -38,12 +38,20 @@ export const onboardGuard = async (societyId, actorUserId, data, meta = {}) => {
   const transaction = await sequelize.transaction();
   try {
     const rawPhone = data.phone || data.mobile;
-    if (!rawPhone) {
-      const err = new Error('Guard phone number is required');
+    if (!rawPhone || !/^\d{10}$/.test(rawPhone)) {
+      const err = new Error('Guard phone number must be exactly 10 numeric digits');
       err.statusCode = 400;
       throw err;
     }
-    const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
+    const cleanPhone = rawPhone;
+
+    if (data.id_type === 'aadhaar' && data.id_number) {
+      if (!/^\d{12}$/.test(data.id_number)) {
+        const err = new Error('Aadhaar number must be exactly 12 numeric digits');
+        err.statusCode = 400;
+        throw err;
+      }
+    }
 
     // 1. Resolve User (Reuse existing user or create one - NO DUPLICATE IDENTITIES)
     let user = await User.findOne({

@@ -62,7 +62,7 @@ export const updateMemberRole = async (req, res, next) => {
   try {
     const actorUserId = req.user?.id || req.user?.userId;
     const societyId = req.societyContext?.societyId;
-    const updatePayload = { role: req.body.role };
+    const updatePayload = { role: req.body.role ? req.body.role.toLowerCase() : undefined };
     if (req.body.remark !== undefined) updatePayload.remark = req.body.remark;
     const member = await societyMemberService.updateMember(req.params.id, societyId, updatePayload, actorUserId, {
       requestId: req.correlationId,
