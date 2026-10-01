@@ -8,8 +8,8 @@ import { logSocietyAudit } from '../society_profile/society_audit_log.service.js
 export const createGate = async (societyId, actorUserId, data, meta = {}) => {
   const gate = await SocietyGate.create({
     society_id: societyId,
-    gate_name: data.gate_name.trim(),
-    gate_code: data.gate_code ? data.gate_code.trim() : null,
+    gate_name: (typeof data.gate_name === 'string' ? data.gate_name.trim() : data.gate_name) || 'Main Gate',
+    gate_code: typeof data.gate_code === 'string' ? data.gate_code.trim() : data.gate_code || null,
     gate_type: data.gate_type || 'main',
     location: data.location || null,
     description: data.description || null,
@@ -91,7 +91,7 @@ export const updateGate = async (id, societyId, data, actorUserId, meta = {}) =>
 
   const oldValue = gate.toJSON();
   await gate.update({
-    gate_name: data.gate_name !== undefined ? data.gate_name.trim() : gate.gate_name,
+    gate_name: typeof data.gate_name === 'string' ? data.gate_name.trim() : (data.gate_name || gate.gate_name),
     gate_code: data.gate_code !== undefined ? data.gate_code : gate.gate_code,
     gate_type: data.gate_type || gate.gate_type,
     location: data.location !== undefined ? data.location : gate.location,

@@ -4,7 +4,7 @@ import { logSocietyAudit } from '../society_profile/society_audit_log.service.js
 export const createShift = async (societyId, actorUserId, data, meta = {}) => {
   const shift = await SocietyShift.create({
     society_id: societyId,
-    shift_name: data.shift_name.trim(),
+    shift_name: (typeof data.shift_name === 'string' ? data.shift_name.trim() : data.shift_name) || 'Default Shift',
     start_time: data.start_time || '07:00',
     end_time: data.end_time || '19:00',
     break_start: data.break_start || null,
@@ -55,7 +55,7 @@ export const updateShift = async (id, societyId, data, actorUserId, meta = {}) =
 
   const oldValue = shift.toJSON();
   await shift.update({
-    shift_name: data.shift_name !== undefined ? data.shift_name.trim() : shift.shift_name,
+    shift_name: typeof data.shift_name === 'string' ? data.shift_name.trim() : (data.shift_name || shift.shift_name),
     start_time: data.start_time || shift.start_time,
     end_time: data.end_time || shift.end_time,
     break_start: data.break_start !== undefined ? data.break_start : shift.break_start,

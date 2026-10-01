@@ -5,7 +5,7 @@ import * as societyVisitorService from './society_visitor.service.js';
 export const createVisitor = async (req, res, next) => {
   try {
     const callerUserId = req.user?.id || req.user?.userId;
-    const societyId = req.body.society_id;
+    const societyId = req.societyContext?.societyId || req.body.society_id;
     const visitor = await societyVisitorService.createVisitor(societyId, callerUserId, req.body, {
       requestId: req.correlationId,
       ip: req.ip,
