@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import User from '../user/user.model.js';
 import env from '../../config/env.js';
@@ -83,11 +84,21 @@ export const sendOTP = async (req, res, next) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const cleanPhone = phoneNumber.trim();
+    const digitsOnly = String(phoneNumber).replace(/\D/g, '');
+    const cleanPhone = digitsOnly.length === 12 && digitsOnly.startsWith('91')
+      ? digitsOnly.slice(2)
+      : digitsOnly.length === 11 && digitsOnly.startsWith('0')
+        ? digitsOnly.slice(1)
+        : digitsOnly;
 
     // ── Check if this phone is already registered to a DIFFERENT email ──
-    const existingPhoneUser = await User.findOne({ where: { phone: cleanPhone } });
-    if (existingPhoneUser && existingPhoneUser.email !== cleanEmail) {
+    const existingPhoneUser = await User.findOne({
+      where: {
+        phone: { [Op.in]: [cleanPhone, `91${cleanPhone}`, `+91${cleanPhone}`] },
+        is_deleted: false,
+      },
+    });
+    if (existingPhoneUser && existingPhoneUser.email?.toLowerCase() !== cleanEmail) {
       return errorResponse(
         res,
         409,

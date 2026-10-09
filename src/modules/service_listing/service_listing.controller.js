@@ -12,7 +12,7 @@ export const createListing = async (req, res, next) => {
 
 export const getAllListings = async (req, res, next) => {
   try {
-    const listings = await serviceListingService.getAllListings();
+    const listings = await serviceListingService.getAllListings(req.query);
     return successResponse(res, 200, 'Service listings fetched successfully', listings);
   } catch (error) {
     next(error);

@@ -9,7 +9,7 @@ export const getAllFiles = async () => {
   return await MediaFile.findAll({
     where: { is_deleted: false },
     include: [
-      { model: User, as: 'uploader', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'uploader', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };
@@ -18,7 +18,7 @@ export const getFileById = async (id) => {
   return await MediaFile.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: User, as: 'uploader', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'uploader', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };

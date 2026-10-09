@@ -305,7 +305,7 @@ export const getAllChats = async () =>
   Chat.findAll({
     where: { is_deleted: false },
     include: [
-      { model: User,            as: 'creator',   attributes: ['userId', 'userName', 'profile_image'] },
+      { model: User,            as: 'creator',   attributes: ['userId', 'userName'] },
       { model: Community,       as: 'community', attributes: ['communityId', 'communityName'] },
       { model: Event,           as: 'event',     attributes: ['id', 'title'] },
       { model: BusinessProfile, as: 'business',  attributes: ['id', 'business_name'] },
@@ -316,7 +316,7 @@ export const getChatById = async (id) =>
   Chat.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: User,            as: 'creator',   attributes: ['userId', 'userName', 'profile_image'] },
+      { model: User,            as: 'creator',   attributes: ['userId', 'userName'] },
       { model: Community,       as: 'community', attributes: ['communityId', 'communityName'] },
       { model: Event,           as: 'event',     attributes: ['id', 'title'] },
       { model: BusinessProfile, as: 'business',  attributes: ['id', 'business_name'] },

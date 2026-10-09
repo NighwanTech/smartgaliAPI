@@ -39,6 +39,16 @@ const sequelize = new Sequelize(env.db.name, env.db.user, env.db.password, {
     idle: 10000,
     evict: 5000,
   },
+  retry: {
+    match: [
+      /ECONNRESET/,
+      /ETIMEDOUT/,
+      /EHOSTUNREACH/,
+      /PROTOCOL_CONNECTION_LOST/,
+      /Connection lost/,
+    ],
+    max: 3,
+  },
 });
 
 // ── DB Query Metrics — Sequelize 6 hooks ─────────────────────────────────────

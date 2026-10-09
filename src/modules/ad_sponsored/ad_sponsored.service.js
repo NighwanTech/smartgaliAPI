@@ -16,7 +16,7 @@ export const getAllAdSponsoredPosts = async () => {
         as: 'post',
         attributes: ['id', 'content'],
         include: [
-          { model: User, as: 'author', attributes: ['userId', 'userName', 'profile_image'] }
+          { model: User, as: 'author', attributes: ['userId', 'userName'] }
         ]
       }
     ]
@@ -32,7 +32,7 @@ export const getAdSponsoredPostById = async (id) => {
         as: 'post',
         attributes: ['id', 'content'],
         include: [
-          { model: User, as: 'author', attributes: ['userId', 'userName', 'profile_image'] }
+          { model: User, as: 'author', attributes: ['userId', 'userName'] }
         ]
       }
     ]

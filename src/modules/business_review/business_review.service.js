@@ -11,7 +11,7 @@ export const getAllReviews = async () => {
     where: { is_deleted: false },
     include: [
       { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };
@@ -21,7 +21,7 @@ export const getReviewById = async (id) => {
     where: { id, is_deleted: false },
     include: [
       { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };
@@ -43,7 +43,7 @@ export const getReviewsByBusinessId = async (business_id) => {
     where: { business_id, is_deleted: false },
     include: [
       { model: BusinessProfile, as: 'business', attributes: ['id', 'business_name'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };

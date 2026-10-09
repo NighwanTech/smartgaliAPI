@@ -37,6 +37,61 @@ router.get(
 );
 
 router.get(
+  '/:id/versions',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyDocumentController.getDocumentVersions
+);
+
+router.post(
+  '/:id/versions',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  uploadSocietyDocument('society').single('file'),
+  societyDocumentController.createDocumentVersion
+);
+
+router.patch(
+  '/:id/status',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyRole(['admin', 'committee']),
+  societyDocumentController.updateDocumentStatus
+);
+
+router.post(
+  '/:id/acknowledge',
+  authenticate,
+  societyMutationLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyDocumentController.acknowledgeDocument
+);
+
+router.get(
+  '/:id/acknowledgements',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyDocumentController.getDocumentAcknowledgements
+);
+
+router.get(
+  '/:id/audit-history',
+  authenticate,
+  societyReadLimiter,
+  validateParams(idParamSchema),
+  requireSocietyMember,
+  societyDocumentController.getDocumentAuditHistory
+);
+
+router.get(
   '/:id',
   authenticate,
   societyReadLimiter,

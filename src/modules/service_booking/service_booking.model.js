@@ -30,8 +30,28 @@ const ServiceBooking = sequelize.define('ServiceBooking', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  time_slot: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  booking_reference: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  service_address: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  cancellation_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   status: {
-    type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),
+    type: DataTypes.STRING(50),
     defaultValue: 'pending',
   },
   amount: {

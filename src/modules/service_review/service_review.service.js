@@ -50,7 +50,7 @@ export const getAllReviews = async () => {
     where: { is_deleted: false },
     include: [
       { model: ServiceBooking, as: 'booking', attributes: ['id', 'status', 'amount'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };
@@ -60,7 +60,7 @@ export const getReviewById = async (id) => {
     where: { id, is_deleted: false },
     include: [
       { model: ServiceBooking, as: 'booking', attributes: ['id', 'status', 'amount'] },
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName', 'email'] }
     ]
   });
 };

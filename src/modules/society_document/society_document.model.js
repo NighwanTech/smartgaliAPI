@@ -53,6 +53,58 @@ const SocietyDocument = sequelize.define('SocietyDocument', {
     defaultValue: 'general',
     allowNull: false,
   },
+  document_number: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  version: {
+    type: DataTypes.STRING(50),
+    defaultValue: '1.0',
+  },
+  priority: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'normal',
+  },
+  visibility: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'all',
+  },
+  allowed_roles: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  tags: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  requires_approval: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  acknowledgement_required: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  effective_from: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  expiry_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  scheduled_publish_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  status: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'published',
+  },
+  is_official: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
   uploaded_by: {
     type: DataTypes.BIGINT,
     allowNull: false,

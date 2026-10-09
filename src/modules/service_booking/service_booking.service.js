@@ -8,6 +8,13 @@ import { logger } from '../../utils/logger.js';
 export const createBooking = async (bookingData) => {
   const booking = await ServiceBooking.create(bookingData);
 
+  // Auto-generate reference if not supplied
+  if (!booking.booking_reference) {
+    const ref = `SG-SRV-${String(booking.id).padStart(4, '0')}`;
+    await booking.update({ booking_reference: ref });
+    booking.booking_reference = ref;
+  }
+
   // Asynchronously notify provider of new booking request
   (async () => {
     try {
@@ -36,14 +43,31 @@ export const createBooking = async (bookingData) => {
     }
   })();
 
-  return booking;
+  return await getBookingById(booking.id);
 };
 
-export const getAllBookings = async () => {
+export const getAllBookings = async (query = {}) => {
+  const where = { is_deleted: false };
+  if (query.user_id) where.user_id = query.user_id;
+  if (query.status) where.status = query.status;
+
   return await ServiceBooking.findAll({
-    where: { is_deleted: false },
+    where,
+    order: [['created_at', 'DESC']],
     include: [
-      { model: ServiceListing, as: 'listing', attributes: ['id', 'title', 'price'] },
+      {
+        model: ServiceListing,
+        as: 'listing',
+        include: [
+          {
+            model: ServiceProviderProfile,
+            as: 'provider',
+            include: [
+              { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'phone'] }
+            ]
+          }
+        ]
+      },
       { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'phone'] }
     ]
   });
@@ -53,7 +77,19 @@ export const getBookingById = async (id) => {
   return await ServiceBooking.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: ServiceListing, as: 'listing', attributes: ['id', 'title', 'price'] },
+      {
+        model: ServiceListing,
+        as: 'listing',
+        include: [
+          {
+            model: ServiceProviderProfile,
+            as: 'provider',
+            include: [
+              { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'phone'] }
+            ]
+          }
+        ]
+      },
       { model: User, as: 'user', attributes: ['userId', 'userName', 'email', 'phone'] }
     ]
   });

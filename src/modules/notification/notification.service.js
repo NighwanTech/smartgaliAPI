@@ -1,4 +1,4 @@
-﻿import Notification from './notification.model.js';
+import Notification from './notification.model.js';
 import User from '../user/user.model.js';
 import UserProfile from '../userProfile/userProfile.model.js';
 import NotificationPreference from '../profile/notification_preference.model.js';
@@ -264,7 +264,7 @@ export const getAllNotifications = async () => {
   return await Notification.findAll({
     where: { is_deleted: false },
     include: [
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName'] }
     ]
   });
 };
@@ -273,7 +273,7 @@ export const getNotificationById = async (id) => {
   return await Notification.findOne({
     where: { id, is_deleted: false },
     include: [
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'profile_image'] }
+      { model: User, as: 'user', attributes: ['userId', 'userName'] }
     ]
   });
 };

@@ -1,4 +1,4 @@
-﻿import Joi from 'joi';
+import Joi from 'joi';
 import {
   ANNOUNCEMENT_PRIORITY,
   ANNOUNCEMENT_STATUS,
@@ -344,20 +344,24 @@ export const createDocumentSchema = Joi.object({
   file_url: Joi.string().trim().max(500).optional(),
   file_type: Joi.string().trim().max(50).optional(),
   file_size: Joi.number().integer().min(0).optional(),
-});
+}).unknown(true);
 
 export const updateDocumentSchema = Joi.object({
   title: Joi.string().trim().min(2).max(255).optional(),
   description: Joi.string().trim().allow('', null).optional(),
   category: Joi.string().trim().max(50).optional(),
-}).min(1);
+}).unknown(true);
 
 export const listDocumentQuerySchema = Joi.object({
   ...pageQuery,
   society_id: id.optional(),
   category: Joi.string().trim().optional(),
   search: Joi.string().trim().allow('', null).optional(),
-});
+  status: Joi.string().trim().optional(),
+  priority: Joi.string().trim().optional(),
+  visibility: Joi.string().trim().optional(),
+  role: Joi.string().trim().optional(),
+}).unknown(true);
 
 // â”€â”€ Society Emergency Contact Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const createEmergencyContactSchema = Joi.object({

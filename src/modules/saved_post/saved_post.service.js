@@ -1,4 +1,4 @@
-﻿import SavedPost from './saved_post.model.js';
+import SavedPost from './saved_post.model.js';
 import User from '../user/user.model.js';
 import Post from '../post/post.model.js';
 
@@ -21,7 +21,7 @@ export const getAllSavedPosts = async (userId) => {
   return await SavedPost.findAll({
     where,
     include: [
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'profile_image'] },
+      { model: User, as: 'user', attributes: ['userId', 'userName'] },
       { model: Post, as: 'post', attributes: ['id', 'content'] }
     ]
   });
@@ -31,7 +31,7 @@ export const getSavedPostById = async (id, userId) => {
   return await SavedPost.findOne({
     where: { id, user_id: userId, is_deleted: false },
     include: [
-      { model: User, as: 'user', attributes: ['userId', 'userName', 'profile_image'] },
+      { model: User, as: 'user', attributes: ['userId', 'userName'] },
       { model: Post, as: 'post', attributes: ['id', 'content'] }
     ]
   });

@@ -9,6 +9,7 @@ import {
   verifyChatMember,
 } from '../../middleware/chatAuthorization.middleware.js';
 import { chatAttachmentUpload, validateChatAttachment } from '../../utils/chatAttachmentUpload.js';
+import * as messageController from '../message/message.controller.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -377,5 +378,17 @@ router.put('/:id', verifyChatMember, requireChatAdmin, chatController.updateChat
  *         description: Chat deleted successfully
  */
 router.delete('/:id', verifyChatMember, requireChatAdmin, chatController.deleteChat);
+
+// Aliases for /api/v1/chat/:id/messages
+router.get('/:id/messages', (req, res, next) => {
+  req.params.chatId = req.params.id;
+  return messageController.getChatMessages(req, res, next);
+});
+
+router.post('/:id/messages', (req, res, next) => {
+  req.body.chat_id = req.body.chat_id || req.params.id;
+  req.body.sender_id = req.body.sender_id || req.user?.id || req.user?.userId;
+  return messageController.sendMessage(req, res, next);
+});
 
 export default router;

@@ -12,7 +12,7 @@ export const createBooking = async (req, res, next) => {
 
 export const getAllBookings = async (req, res, next) => {
   try {
-    const bookings = await serviceBookingService.getAllBookings();
+    const bookings = await serviceBookingService.getAllBookings(req.query);
     return successResponse(res, 200, 'Service bookings fetched successfully', bookings);
   } catch (error) {
     next(error);

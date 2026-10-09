@@ -27,6 +27,7 @@ import societyVisitorRoutes from '../modules/society_visitor/society_visitor.rou
 import societyParkingRoutes from '../modules/society_parking/society_parking.routes.js';
 import societyPollRoutes from '../modules/society_poll/society_poll.routes.js';
 import societyDocumentRoutes from '../modules/society_document/society_document.routes.js';
+import residentDocumentRoutes from '../modules/resident_document/resident_document.routes.js';
 import societyEmergencyContactRoutes from '../modules/society_emergency_contact/society_emergency_contact.routes.js';
 import mediaFileRoutes from '../modules/media_file/media_file.routes.js';
 import postRoutes from '../modules/post/post.routes.js';
@@ -98,6 +99,7 @@ router.use('/service-provider-profile', serviceProviderProfileRoutes);
 router.use('/service-listing', serviceListingRoutes);
 router.use('/services', serviceListingRoutes);
 router.use('/service-booking', serviceBookingRoutes);
+router.use('/service-bookings', serviceBookingRoutes);
 router.use('/service-review', serviceReviewRoutes);
 router.use('/societies', societiesRoutes);
 router.use('/society', societiesRoutes);
@@ -111,6 +113,8 @@ router.use('/society-parking', societyParkingRoutes);
 router.use('/society-poll', societyPollRoutes);
 router.use('/society-document', societyDocumentRoutes);
 router.use('/society-documents', societyDocumentRoutes);
+router.use('/resident-document', residentDocumentRoutes);
+router.use('/resident-documents', residentDocumentRoutes);
 router.use('/society-emergency-contact', societyEmergencyContactRoutes);
 router.use('/society-emergency-contacts', societyEmergencyContactRoutes);
 router.use('/media-file', mediaFileRoutes);
@@ -144,9 +148,13 @@ router.use('/society-gate', societyGateRoutes);
 router.use('/society-gates', societyGateRoutes);
 router.use('/society-security', societySecurityRoutes);
 router.use('/society-guard', societyGuardRoutes);
+router.use('/society-guards', societyGuardRoutes);
 router.use('/society-shift', societyShiftRoutes);
+router.use('/society-shifts', societyShiftRoutes);
 router.use('/society-worker', societyWorkerRoutes);
+router.use('/society-workers', societyWorkerRoutes);
 router.use('/society-committee', societyCommitteeRoutes);
+router.use('/society-committees', societyCommitteeRoutes);
 
 // Complaint Masters (Resident queries & Super Admin management)
 router.use('/complaint-masters', complaintMasterRoutes);
