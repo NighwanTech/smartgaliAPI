@@ -99,6 +99,7 @@ export const toPublicServiceListing = (listing) => {
     inspection_fee: raw.inspection_fee != null ? Number(raw.inspection_fee) : null,
     duration_option: raw.duration_option ? { id: Number(raw.duration_option.id), label: raw.duration_option.label, minutes: Number(raw.duration_option.minutes) } : null,
     buffer_option: raw.buffer_option ? { id: Number(raw.buffer_option.id), label: raw.buffer_option.label, minutes: Number(raw.buffer_option.minutes) } : null,
+    execution_method_id: raw.execution_method_id ? Number(raw.execution_method_id) : (raw.execution_method?.id ? Number(raw.execution_method.id) : null),
     execution_method: raw.execution_method ? { id: Number(raw.execution_method.id), code: raw.execution_method.code, name: raw.execution_method.name } : null,
     min_duration: raw.min_duration_option ? { id: Number(raw.min_duration_option.id), label: raw.min_duration_option.label, minutes: raw.min_duration_option.minutes } : null,
     material_policy: raw.material_policy ? { id: Number(raw.material_policy.id), code: raw.material_policy.code, name: raw.material_policy.name } : null,

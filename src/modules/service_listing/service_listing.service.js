@@ -107,7 +107,9 @@ export const listingMasterIncludes = [
 ];
 
 export const createListing = async (listingData, actorUser) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   let providerProfile = null;
@@ -408,8 +410,8 @@ export const createListing = async (listingData, actorUser) => {
         locality_id: area.locality_id || null,
         pincode_id: area.pincode_id || null,
         society_id: area.society_id || null,
-        origin_latitude: area.origin_latitude != null ? area.origin_latitude : null,
-        origin_longitude: area.origin_longitude != null ? area.origin_longitude : null,
+        origin_latitude: area.origin_latitude != null ? area.origin_latitude : (providerProfile?.service_area?.centerLatitude || providerProfile?.latitude || null),
+        origin_longitude: area.origin_longitude != null ? area.origin_longitude : (providerProfile?.service_area?.centerLongitude || providerProfile?.longitude || null),
         origin_address: area.origin_address || null,
         radius_option_id: area.radius_option_id || null,
         resolved_radius_km: resolvedRadiusKm,
@@ -417,22 +419,56 @@ export const createListing = async (listingData, actorUser) => {
         display_order: i + 1,
       });
     }
-  } else if (listingRecord.radius_option_id) {
-    // Fallback: auto-generate default coverage area from single listing radius_option_id
-    const ro = await ServiceRadiusOption.findOne({ where: { id: listingRecord.radius_option_id } });
-    if (ro) {
+  } else {
+    // Enterprise Fallback: auto-generate default coverage area from provider profile service_area or single listing radius_option_id
+    let provLat = null;
+    let provLng = null;
+    let provCity = 'Patna';
+    let provRadius = 20;
+
+    let sa = providerProfile?.service_area;
+    if (typeof sa === 'string') {
+      try { sa = JSON.parse(sa); } catch (_) { sa = null; }
+    }
+    if (sa?.centerLatitude != null && sa?.centerLongitude != null) {
+      provLat = Number(sa.centerLatitude);
+      provLng = Number(sa.centerLongitude);
+      provRadius = Number(sa.radiusKm) || 20;
+      provCity = sa.city || 'Patna';
+    } else if (providerProfile?.latitude != null && providerProfile?.longitude != null) {
+      provLat = Number(providerProfile.latitude);
+      provLng = Number(providerProfile.longitude);
+    }
+
+    if (provLat != null && provLng != null) {
       await ServiceCoverageArea.create({
         service_id: listingRecord.id,
         coverage_scope: listingRecord.coverage_scope || 'PUBLIC',
         coverage_method: 'RADIUS',
-        origin_latitude: 25.6022,
-        origin_longitude: 85.1610,
-        origin_address: 'Patna Service Base',
-        radius_option_id: listingRecord.radius_option_id,
-        resolved_radius_km: Number(ro.radius_km),
+        origin_latitude: provLat,
+        origin_longitude: provLng,
+        origin_address: `${provCity} Service Hub`,
+        radius_option_id: listingRecord.radius_option_id || null,
+        resolved_radius_km: provRadius,
         is_active: true,
         display_order: 1,
       });
+    } else if (listingRecord.radius_option_id) {
+      const ro = await ServiceRadiusOption.findOne({ where: { id: listingRecord.radius_option_id } });
+      if (ro) {
+        await ServiceCoverageArea.create({
+          service_id: listingRecord.id,
+          coverage_scope: listingRecord.coverage_scope || 'PUBLIC',
+          coverage_method: 'RADIUS',
+          origin_latitude: 25.6022,
+          origin_longitude: 85.1610,
+          origin_address: 'Patna Service Base',
+          radius_option_id: listingRecord.radius_option_id,
+          resolved_radius_km: Number(ro.radius_km),
+          is_active: true,
+          display_order: 1,
+        });
+      }
     }
   }
 
@@ -473,7 +509,9 @@ export const createListing = async (listingData, actorUser) => {
 };
 
 export const updateListing = async (id, updateData, actorUser) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   const listing = await ServiceListing.findOne({
@@ -826,7 +864,23 @@ export const getAllListings = async (query = {}) => {
   if (category_id) where.category_id = category_id;
   if (service_subcategory_id) where.service_subcategory_id = service_subcategory_id;
   if (pricing_model_id) where.pricing_model_id = pricing_model_id;
-  if (execution_method_id) where.execution_method_id = execution_method_id;
+  if (execution_method_id) {
+    where.execution_method_id = Number(execution_method_id);
+  } else if (query.execution_method) {
+    const emStr = String(query.execution_method).toUpperCase().trim();
+    const emRec = await ServiceExecutionMethod.findOne({
+      where: {
+        [Op.or]: [
+          { code: emStr },
+          { name: { [Op.like]: `%${query.execution_method.trim()}%` } },
+        ],
+        is_deleted: false,
+      },
+    });
+    if (emRec) {
+      where.execution_method_id = emRec.id;
+    }
+  }
 
   if (min_price != null || max_price != null) {
     where.price = {};
@@ -896,7 +950,16 @@ export const getAllListings = async (query = {}) => {
     if (city && typeof city === 'string' && city.trim().length > 0) {
       const targetCity = city.trim().toLowerCase();
       const provCity = (sa?.city || '').trim().toLowerCase();
-      if (provCity && !provCity.includes(targetCity) && !targetCity.includes(provCity)) {
+      let cityMatched = false;
+      if (provCity && (provCity.includes(targetCity) || targetCity.includes(provCity))) {
+        cityMatched = true;
+      }
+      if (!cityMatched && Array.isArray(r.coverage_areas)) {
+        if (r.coverage_areas.some(ca => (ca.city?.name || ca.city_name || ca.origin_address || '').toLowerCase().includes(targetCity))) {
+          cityMatched = true;
+        }
+      }
+      if (!cityMatched) {
         continue;
       }
     }
@@ -1079,7 +1142,9 @@ export const resumeListing = async (id, actorUser) => {
 };
 
 export const deleteListing = async (id, actorUser, deletedRemarks) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
   const isDev = process.env.NODE_ENV === 'development' || !env.isProduction || process.env.BYPASS_SERVICE_AUTH === 'true';
 
@@ -1134,7 +1199,9 @@ export const softDeleteListing = async (id, deletedRemarks, actorUser) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const uploadServiceListingMedia = async (serviceId, actorUser, file, body = {}) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   const listing = await ServiceListing.findOne({
@@ -1258,7 +1325,9 @@ export const getServiceListingMedia = async (serviceId, actorUser) => {
 };
 
 export const deleteServiceListingMedia = async (serviceId, mediaId, actorUser) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   const listing = await ServiceListing.findOne({
@@ -1336,7 +1405,9 @@ export const deleteServiceListingMedia = async (serviceId, mediaId, actorUser) =
 };
 
 export const getServiceListingKycStatus = async (serviceId, actorUser) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   const listing = await ServiceListing.findOne({
@@ -1411,7 +1482,9 @@ export const getServiceListingKycStatus = async (serviceId, actorUser) => {
 };
 
 export const submitServiceListingForReview = async (serviceId, actorUser) => {
-  const actorId = actorUser?.id || actorUser?.userId;
+  const actorId = (typeof actorUser === 'object' && actorUser !== null)
+    ? (actorUser.id || actorUser.userId)
+    : (actorUser || listingData.created_by || listingData.provider_id);
   const isAdmin = isGlobalAdminUser(actorUser);
 
   const listing = await ServiceListing.findOne({

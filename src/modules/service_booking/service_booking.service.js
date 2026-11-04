@@ -10,11 +10,18 @@ import ServiceBookingTimeline from './service_booking_timeline.model.js';
 import ServiceListing from '../service_listing/service_listing.model.js';
 import ServiceProviderProfile from '../service_provider_profile/service_provider_profile.model.js';
 import User from '../user/user.model.js';
+import UserAddress from '../profile/user_address.model.js';
 import { emitNotification } from '../notification/notification.service.js';
 import { getIO } from '../../socket.js';
 import { audit } from '../audit_log/audit_log.service.js';
 import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
 import { logger } from '../../utils/logger.js';
+import {
+  maskPhoneNumber,
+  maskServiceAddress,
+  coarsenCoordinate,
+  sanitizeBookingForParty,
+} from './booking_privacy.utils.js';
 
 /**
  * Creates a new booking with concurrency protection and doorstep safety PIN.
@@ -66,9 +73,69 @@ export const createBooking = async (bookingData, actorUser) => {
     // AUTHORITATIVE RESIDENT SOCIETY RESOLUTION (Phases 8 & 19)
     // Prevent resident from spoofing an arbitrary society_id
     // ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    // ENTERPRISE CUSTOMER ADDRESS RESOLUTION (Priority 2)
+    // If address_id is supplied, look up UserAddress ensuring tenant ownership.
+    // ──────────────────────────────────────────────────────────────────────────
+    let verifiedAddress = null;
+    const requestedAddressId = bookingData.address_id || bookingData.addressId;
+    if (requestedAddressId) {
+      verifiedAddress = await UserAddress.findOne({
+        where: {
+          id: requestedAddressId,
+          user_id: actorId,
+          is_deleted: false,
+          is_active: true,
+        },
+        include: [
+          {
+            model: SocietyProfile,
+            as: 'society',
+            attributes: ['id', 'society_name', 'address'],
+            required: false,
+          },
+        ],
+        transaction: t,
+      });
+
+      if (!verifiedAddress) {
+        const err = new Error('Selected saved address was not found or does not belong to you.');
+        err.statusCode = 404;
+        err.code = 'ADDRESS_NOT_FOUND';
+        throw err;
+      }
+    }
+
+    const effectiveServiceAddress = verifiedAddress
+      ? (verifiedAddress.full_address || [
+          verifiedAddress.flat_unit,
+          verifiedAddress.building_name,
+          verifiedAddress.street_address,
+          verifiedAddress.locality,
+          verifiedAddress.city,
+          verifiedAddress.district,
+          verifiedAddress.state,
+          verifiedAddress.pincode,
+        ].filter(Boolean).join(', '))
+      : bookingData.service_address;
+
+    const effectiveLatitude = verifiedAddress && verifiedAddress.latitude != null
+      ? Number(verifiedAddress.latitude)
+      : (bookingData.latitude != null ? Number(bookingData.latitude) : null);
+
+    const effectiveLongitude = verifiedAddress && verifiedAddress.longitude != null
+      ? Number(verifiedAddress.longitude)
+      : (bookingData.longitude != null ? Number(bookingData.longitude) : null);
+
+    const effectiveLocality = (verifiedAddress && verifiedAddress.locality) || bookingData.locality || null;
+    const effectivePincode = (verifiedAddress && verifiedAddress.pincode) || bookingData.pincode || null;
+    const effectiveCity = (verifiedAddress && verifiedAddress.city) || bookingData.city || null;
+
     let authoritativeSocietyId = null;
-    if (bookingData.society_id) {
-      const targetSocId = Number(bookingData.society_id);
+    const requestedSocietyId = bookingData.society_id || (verifiedAddress && verifiedAddress.society_id);
+    if (requestedSocietyId) {
+      const targetSocId = Number(requestedSocietyId);
+      
       const membership = await SocietyMember.findOne({
         where: {
           user_id: actorId,
@@ -143,13 +210,13 @@ export const createBooking = async (bookingData, actorUser) => {
       listing,
       providerProfile: listing.provider,
       customerLocation: {
-        latitude: bookingData.latitude,
-        longitude: bookingData.longitude,
+        latitude: effectiveLatitude,
+        longitude: effectiveLongitude,
         society_id: authoritativeSocietyId,
-        service_address: bookingData.service_address,
-        locality: bookingData.locality,
-        pincode: bookingData.pincode,
-        city: bookingData.city,
+        service_address: effectiveServiceAddress,
+        locality: effectiveLocality,
+        pincode: effectivePincode,
+        city: effectiveCity,
         locality_id: bookingData.locality_id,
         pincode_id: bookingData.pincode_id,
         city_id: bookingData.city_id,
@@ -228,6 +295,8 @@ export const createBooking = async (bookingData, actorUser) => {
     });
 
     const coverageSnapshot = {
+      address_id: verifiedAddress ? verifiedAddress.id : null,
+      address_type: verifiedAddress ? verifiedAddress.address_type : null,
       society_id: authoritativeSocietyId || null,
       provider_id: providerId,
       service_listing_id: listing.id,
@@ -276,10 +345,10 @@ export const createBooking = async (bookingData, actorUser) => {
       scheduled_at: scheduledDateStart,
       occupied_until: occupiedUntilDate,
       time_slot: bookingData.time_slot,
-      service_address: bookingData.service_address,
+      service_address: effectiveServiceAddress,
       society_id: authoritativeSocietyId || null,
-      latitude: bookingData.latitude || null,
-      longitude: bookingData.longitude || null,
+      latitude: effectiveLatitude,
+      longitude: effectiveLongitude,
       notes: bookingData.notes || null,
       status: initialStatus,
       amount: (bookingData.amount != null && Number(bookingData.amount) > 0) ? Number(bookingData.amount) : priceCalculation.customer_payable,
@@ -321,7 +390,31 @@ export const createBooking = async (bookingData, actorUser) => {
           const io = getIO();
           if (io) {
             const providerUid = Number(listing.provider.user_id);
-            const socketPayload = {
+            const isAutoAccept = booking.status === 'confirmed' || booking.status === 'accepted';
+
+            // Provider payload: Sensitive customer phone & address masked in requested state
+            const providerSocketPayload = {
+              id: Number(booking.id),
+              bookingId: Number(booking.id),
+              bookingReference: booking.booking_reference,
+              status: booking.status,
+              listingId: Number(listing.id),
+              serviceTitle: listing.title,
+              scheduledAt: booking.scheduled_at,
+              timeSlot: booking.time_slot,
+              serviceAddress: isAutoAccept ? booking.service_address : maskServiceAddress(booking.service_address),
+              amount: Number(booking.amount),
+              customerName: actorUser?.userName || 'Resident Customer',
+              customerPhone: isAutoAccept ? (actorUser?.phone || null) : maskPhoneNumber(actorUser?.phone),
+              latitude: isAutoAccept ? booking.latitude : coarsenCoordinate(booking.latitude),
+              longitude: isAutoAccept ? booking.longitude : coarsenCoordinate(booking.longitude),
+              doorstepPin: null, // Never expose safety PIN in initial booking request
+              notes: booking.notes,
+              createdAt: booking.createdAt || new Date(),
+            };
+
+            // Resident payload: Resident always sees their own unmasked details & Doorstep PIN
+            const residentSocketPayload = {
               id: Number(booking.id),
               bookingId: Number(booking.id),
               bookingReference: booking.booking_reference,
@@ -334,25 +427,29 @@ export const createBooking = async (bookingData, actorUser) => {
               amount: Number(booking.amount),
               customerName: actorUser?.userName || 'Resident Customer',
               customerPhone: actorUser?.phone || null,
+              doorstepPin: booking.doorstep_pin,
+              latitude: booking.latitude,
+              longitude: booking.longitude,
               notes: booking.notes,
               createdAt: booking.createdAt || new Date(),
             };
 
-            // Emit to both user:id and user_id rooms across standard event names
-            io.to(`user:${providerUid}`).emit('booking_request', socketPayload);
-            io.to(`user_${providerUid}`).emit('booking_request', socketPayload);
-            io.to(`user:${providerUid}`).emit('booking:request', socketPayload);
-            io.to(`user_${providerUid}`).emit('booking:request', socketPayload);
-            io.to(`user:${providerUid}`).emit('booking:new', socketPayload);
-            io.to(`user_${providerUid}`).emit('booking:new', socketPayload);
+            // Emit masked payload to both user:id and user_id rooms of provider
+            io.to(`user:${providerUid}`).emit('booking_request', providerSocketPayload);
+            io.to(`user_${providerUid}`).emit('booking_request', providerSocketPayload);
+            io.to(`user:${providerUid}`).emit('booking:request', providerSocketPayload);
+            io.to(`user_${providerUid}`).emit('booking:request', providerSocketPayload);
+            io.to(`user:${providerUid}`).emit('booking:new', providerSocketPayload);
+            io.to(`user_${providerUid}`).emit('booking:new', providerSocketPayload);
 
+            // Emit unmasked payload to resident
             if (actorId && Number(actorId) !== Number(providerUid)) {
-              io.to(`user:${actorId}`).emit('booking_request', socketPayload);
-              io.to(`user_${actorId}`).emit('booking_request', socketPayload);
-              io.to(`user:${actorId}`).emit('booking:request', socketPayload);
-              io.to(`user_${actorId}`).emit('booking:request', socketPayload);
-              io.to(`user:${actorId}`).emit('booking:new', socketPayload);
-              io.to(`user_${actorId}`).emit('booking:new', socketPayload);
+              io.to(`user:${actorId}`).emit('booking_request', residentSocketPayload);
+              io.to(`user_${actorId}`).emit('booking_request', residentSocketPayload);
+              io.to(`user:${actorId}`).emit('booking:request', residentSocketPayload);
+              io.to(`user_${actorId}`).emit('booking:request', residentSocketPayload);
+              io.to(`user:${actorId}`).emit('booking:new', residentSocketPayload);
+              io.to(`user_${actorId}`).emit('booking:new', residentSocketPayload);
             }
           }
         }
@@ -813,8 +910,20 @@ export const transitionBooking = async (id, action, params = {}, actorUser) => {
         });
 
         if (io) {
+          const isAcceptedNow = nextStatus === 'accepted' || nextStatus === 'confirmed';
           const statusPayload = {
             id: Number(booking.id),
+            bookingId: Number(booking.id),
+            status: nextStatus,
+            serviceTitle: listingTitle,
+            ...(isAcceptedNow ? {
+              customerName: booking.user?.userName || 'Resident Customer',
+              customerPhone: booking.user?.phone || null,
+              customerEmail: booking.user?.email || null,
+              serviceAddress: booking.service_address,
+              latitude: booking.latitude,
+              longitude: booking.longitude,
+            } : {}),
             bookingId: Number(booking.id),
             status: nextStatus,
             serviceTitle: listingTitle,

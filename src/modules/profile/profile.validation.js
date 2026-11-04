@@ -22,15 +22,32 @@ export const updateProfileSchema = Joi.object({
 }).min(1);
 
 export const addressSchema = Joi.object({
-  label: Joi.string().trim().max(50),
+  addressType: Joi.string().trim().valid('HOME', 'OFFICE', 'OTHER', 'Home', 'Office', 'Other'),
+  address_type: Joi.string().trim().valid('HOME', 'OFFICE', 'OTHER', 'Home', 'Office', 'Other'),
+  label: Joi.string().trim().max(100).allow('', null),
+  flatUnit: Joi.string().trim().max(100).allow('', null),
+  flat_unit: Joi.string().trim().max(100).allow('', null),
   houseNo: Joi.string().trim().max(120).allow('', null),
-  street: Joi.string().trim().max(200).allow('', null),
+  house_no: Joi.string().trim().max(120).allow('', null),
+  buildingName: Joi.string().trim().max(200).allow('', null),
+  building_name: Joi.string().trim().max(200).allow('', null),
   landmark: Joi.string().trim().max(200).allow('', null),
+  streetAddress: Joi.string().trim().max(500).allow('', null),
+  street_address: Joi.string().trim().max(500).allow('', null),
+  street: Joi.string().trim().max(200).allow('', null),
+  locality: Joi.string().trim().max(150).allow('', null),
   city: Joi.string().trim().max(120).allow('', null),
+  district: Joi.string().trim().max(100).allow('', null),
+  state: Joi.string().trim().max(100).allow('', null),
+  pincode: Joi.string().trim().pattern(/^[1-9][0-9]{5}$/).message('PIN code must be a valid 6-digit Indian PIN code').allow('', null),
+  societyId: Joi.number().integer().positive().allow(null),
+  society_id: Joi.number().integer().positive().allow(null),
   fullAddress: Joi.string().trim().max(500).allow('', null),
-  latitude: Joi.number().min(-90).max(90),
-  longitude: Joi.number().min(-180).max(180),
+  full_address: Joi.string().trim().max(500).allow('', null),
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
   isDefault: Joi.boolean(),
+  is_default: Joi.boolean(),
 }).min(1);
 
 export const supportTicketSchema = Joi.object({

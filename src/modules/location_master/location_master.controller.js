@@ -1,4 +1,5 @@
-import { Country, State, City, Locality, Pincode } from './location_master.models.js';
+import { Op } from 'sequelize';
+import { Country, State, District, City, Locality, Pincode } from './location_master.models.js';
 
 export const getCountries = async (req, res, next) => {
   try {
@@ -28,14 +29,65 @@ export const getStates = async (req, res, next) => {
   }
 };
 
-export const getCities = async (req, res, next) => {
+export const getDistricts = async (req, res, next) => {
   try {
-    const { state_id } = req.query;
+    const { state_id, search } = req.query;
     const where = { is_active: true, is_deleted: false };
     if (state_id) where.state_id = state_id;
 
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { district_name_english: { [Op.like]: q } },
+        { district_name_local: { [Op.like]: q } },
+        { code: { [Op.like]: q } },
+        { lgd_district_code: { [Op.like]: q } },
+      ];
+    }
+
+    const districts = await District.findAll({
+      where,
+      include: [
+        { model: State, as: 'state', attributes: ['id', 'name', 'code'] },
+      ],
+      order: [['display_order', 'ASC'], ['district_name_english', 'ASC']],
+    });
+    res.json({ success: true, data: districts });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getDistrictById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const district = await District.findOne({
+      where: { id, is_deleted: false },
+      include: [
+        { model: State, as: 'state', attributes: ['id', 'name', 'code'] },
+      ],
+    });
+    if (!district) {
+      return res.status(404).json({ success: false, message: 'District not found.' });
+    }
+    res.json({ success: true, data: district });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCities = async (req, res, next) => {
+  try {
+    const { state_id, district_id } = req.query;
+    const where = { is_active: true, is_deleted: false };
+    if (state_id) where.state_id = state_id;
+    if (district_id) where.district_id = district_id;
+
     const cities = await City.findAll({
       where,
+      include: [
+        { model: District, as: 'district', attributes: ['id', 'district_name_english', 'code'], required: false },
+      ],
       order: [['display_order', 'ASC'], ['name', 'ASC']],
     });
     res.json({ success: true, data: cities });
@@ -82,6 +134,7 @@ export const getLocationHierarchy = async (req, res, next) => {
     const cities = await City.findAll({
       where: { is_active: true, is_deleted: false },
       include: [
+        { model: District, as: 'district', attributes: ['id', 'district_name_english', 'code'], required: false },
         { model: Locality, as: 'localities', where: { is_active: true, is_deleted: false }, required: false },
         { model: Pincode, as: 'pincodes', where: { is_active: true, is_deleted: false }, required: false },
       ],
@@ -100,6 +153,8 @@ export const getLocationHierarchy = async (req, res, next) => {
 export default {
   getCountries,
   getStates,
+  getDistricts,
+  getDistrictById,
   getCities,
   getLocalities,
   getPincodes,

@@ -2,10 +2,11 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
+import SocietyProfile from '../society_profile/society_profile.model.js';
 
 /**
- * UserAddress — saved delivery/home/shop addresses for the "Manage Addresses" screen.
- * A user can have many addresses; exactly one can be flagged as default.
+ * UserAddress — Enterprise saved delivery/home/office/society addresses.
+ * A user can have many addresses; exactly one active address can be flagged as default.
  */
 const UserAddress = sequelize.define('UserAddress', {
   id: {
@@ -18,27 +19,65 @@ const UserAddress = sequelize.define('UserAddress', {
     allowNull: false,
     references: { model: User, key: 'userId' },
   },
-  // UI label — Home / Shop / Other
+  address_type: {
+    type: DataTypes.ENUM('HOME', 'OFFICE', 'OTHER'),
+    allowNull: false,
+    defaultValue: 'HOME',
+  },
+  flat_unit: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  building_name: {
+    type: DataTypes.STRING(200),
+    allowNull: true,
+  },
+  street_address: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  locality: {
+    type: DataTypes.STRING(150),
+    allowNull: true,
+  },
+  // Backward compatibility alias & UI label
   label: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
     defaultValue: 'Home',
   },
   house_no: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   street: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   landmark: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   city: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
+  },
+  district: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  state: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  pincode: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+  },
+  society_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: SocietyProfile, key: 'id' },
   },
   // Pre-composed, display-ready address string
   full_address: {
@@ -58,6 +97,10 @@ const UserAddress = sequelize.define('UserAddress', {
     defaultValue: false,
   },
   ...commonFields,
+  updated_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   timestamps: false,
   tableName: 'user_addresses',
@@ -65,5 +108,8 @@ const UserAddress = sequelize.define('UserAddress', {
 
 UserAddress.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(UserAddress, { foreignKey: 'user_id', as: 'addresses' });
+
+UserAddress.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
+SocietyProfile.hasMany(UserAddress, { foreignKey: 'society_id', as: 'addresses' });
 
 export default UserAddress;

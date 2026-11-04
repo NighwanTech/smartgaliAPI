@@ -405,16 +405,24 @@ export const validateCustomerCoverageEligibility = async ({
       };
     }
 
-    return {
-      isEligible: false,
-      eligible: false,
-      reasonCode: failureReason,
-      reason: 'This service is not available at your designated location.',
-      distanceKm: null,
-    };
+    // If customer is specifically booking for a residential society or listing is strictly SOCIETY-only:
+    if (custSocietyId || listing?.coverage_scope === 'SOCIETY') {
+      return {
+        isEligible: false,
+        eligible: false,
+        reasonCode: failureReason,
+        reason: custSocietyId
+          ? 'This service is not available for your selected residential society.'
+          : 'This service is exclusively available to approved residential societies.',
+        distanceKm: null,
+      };
+    }
+
+    // For public bookings where child coverage areas were only defined for societies or none matched,
+    // continue to Step 5 provider profile operational radius fallback!
   }
 
-  // 5. LEGACY SINGLE-AREA FALLBACK (When no child coverage areas are stored)
+  // 5. LEGACY SINGLE-AREA FALLBACK (When no child coverage areas matched public location)
   const legacyConfig = await resolveProviderCoverageConfig(listing, providerProfile);
 
   // City check

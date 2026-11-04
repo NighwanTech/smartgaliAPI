@@ -13,6 +13,7 @@ import NotificationPreference from './notification_preference.model.js';
 import PrivacySetting from './privacy_setting.model.js';
 import SupportTicket from './support_ticket.model.js';
 import DataExportRequest from './data_export_request.model.js';
+import * as userAddressService from '../user_address/user_address.service.js';
 
 const SALT_ROUNDS = 10;
 
@@ -185,220 +186,34 @@ export const updateMyProfile = async (userId, data) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Addresses
+// Addresses (Delegates to Enterprise userAddressService)
 // ─────────────────────────────────────────────────────────────
 export const getAddresses = async (userId) => {
-  const rows = await UserAddress.findAll({
-    where: { user_id: userId, is_deleted: false, is_active: true },
-    order: [['is_default', 'DESC'], ['id', 'DESC']],
-  });
-  return rows.map(serializeAddress);
+  return await userAddressService.getAddresses(userId);
 };
 
 export const createAddress = async (userId, data) => {
-  const t = await sequelize.transaction();
-  try {
-    const owner = await User.findOne({
-      where: { userId, is_deleted: false, status: 'active' },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!owner) {
-      await t.rollback();
-      return null;
-    }
-    const parts = [data.houseNo, data.street, data.landmark, data.city].filter(Boolean);
-    const fullAddress = data.fullAddress || parts.join(', ');
-
-    const activeWhere = activeAddressWhere(userId);
-    const count = await UserAddress.count({ where: activeWhere, transaction: t });
-    const shouldDefault = shouldMakeAddressDefault({
-      requestedDefault: data.isDefault,
-      activeAddressCount: count,
-    });
-    if (shouldDefault) {
-      await UserAddress.update({ is_default: false }, { where: activeWhere, transaction: t });
-    }
-
-    const created = await UserAddress.create({
-      user_id: userId,
-      label: data.label || 'Home',
-      house_no: data.houseNo || null,
-      street: data.street || null,
-      landmark: data.landmark || null,
-      city: data.city || null,
-      full_address: fullAddress || null,
-      latitude: data.latitude ?? null,
-      longitude: data.longitude ?? null,
-      is_default: shouldDefault,
-      created_by: userId,
-    }, { transaction: t });
-
-    await t.commit();
-    return serializeAddress(created);
-  } catch (error) {
-    await t.rollback();
-    throw error;
-  }
+  const result = await userAddressService.createAddress(userId, data);
+  if (result.error) return null;
+  return result.data;
 };
 
 export const updateAddress = async (userId, addressId, data) => {
-  const t = await sequelize.transaction();
-  try {
-    const owner = await User.findOne({
-      where: { userId, is_deleted: false, status: 'active' },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!owner) {
-      await t.rollback();
-      return null;
-    }
-    const activeWhere = activeAddressWhere(userId);
-    const address = await UserAddress.findOne({
-      where: { id: addressId, ...activeWhere },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!address) {
-      await t.rollback();
-      return null;
-    }
-
-    const patch = {};
-    if (data.label !== undefined) patch.label = data.label;
-    if (data.houseNo !== undefined) patch.house_no = data.houseNo;
-    if (data.street !== undefined) patch.street = data.street;
-    if (data.landmark !== undefined) patch.landmark = data.landmark;
-    if (data.city !== undefined) patch.city = data.city;
-    if (data.latitude !== undefined) patch.latitude = data.latitude;
-    if (data.longitude !== undefined) patch.longitude = data.longitude;
-    if (data.fullAddress !== undefined) {
-      patch.full_address = data.fullAddress;
-    } else if (Object.keys(patch).length > 0) {
-      patch.full_address = [
-        patch.house_no ?? address.house_no,
-        patch.street ?? address.street,
-        patch.landmark ?? address.landmark,
-        patch.city ?? address.city,
-      ].filter(Boolean).join(', ');
-    }
-
-    if (data.isDefault === true) {
-      await UserAddress.update({ is_default: false }, { where: activeWhere, transaction: t });
-      patch.is_default = true;
-    } else if (data.isDefault === false && address.is_default) {
-      const replacement = await UserAddress.findOne({
-        where: { ...activeWhere, id: { [Op.ne]: address.id } },
-        order: [['created_at', 'DESC'], ['id', 'DESC']],
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-      patch.is_default = replacement ? false : true;
-      if (replacement) {
-        await UserAddress.update(
-          { is_default: false },
-          { where: activeWhere, transaction: t }
-        );
-        await replacement.update({ is_default: true, updated_by: userId }, { transaction: t });
-      }
-    }
-    patch.updated_by = userId;
-
-    await address.update(patch, { transaction: t });
-    await t.commit();
-    return serializeAddress(address);
-  } catch (error) {
-    if (!t.finished) await t.rollback();
-    throw error;
-  }
+  const result = await userAddressService.updateAddress(userId, addressId, data);
+  if (result.error) return null;
+  return result.data;
 };
 
 export const setDefaultAddress = async (userId, addressId) => {
-  const t = await sequelize.transaction();
-  try {
-    const owner = await User.findOne({
-      where: { userId, is_deleted: false, status: 'active' },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!owner) {
-      await t.rollback();
-      return null;
-    }
-    const activeWhere = activeAddressWhere(userId);
-    const address = await UserAddress.findOne({
-      where: { id: addressId, ...activeWhere },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!address) {
-      await t.rollback();
-      return null;
-    }
-    await UserAddress.update({ is_default: false }, { where: activeWhere, transaction: t });
-    await address.update({ is_default: true, updated_by: userId }, { transaction: t });
-    await t.commit();
-    return serializeAddress(address);
-  } catch (error) {
-    await t.rollback();
-    throw error;
-  }
+  const result = await userAddressService.setDefaultAddress(userId, addressId);
+  if (result.error) return null;
+  return result.data;
 };
 
 export const deleteAddress = async (userId, addressId) => {
-  const t = await sequelize.transaction();
-  try {
-    const owner = await User.findOne({
-      where: { userId, is_deleted: false, status: 'active' },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!owner) {
-      await t.rollback();
-      return null;
-    }
-    const activeWhere = activeAddressWhere(userId);
-    const address = await UserAddress.findOne({
-      where: { id: addressId, ...activeWhere },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-    if (!address) {
-      await t.rollback();
-      return null;
-    }
-
-    const wasDefault = address.is_default;
-    await address.update({
-      is_deleted: true,
-      is_active: false,
-      is_default: false,
-      updated_by: userId,
-    }, { transaction: t });
-
-    if (wasDefault) {
-      const replacement = await UserAddress.findOne({
-        where: activeWhere,
-        order: [['created_at', 'DESC'], ['id', 'DESC']],
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-      if (replacement) {
-        await UserAddress.update(
-          { is_default: false },
-          { where: activeWhere, transaction: t }
-        );
-        await replacement.update({ is_default: true, updated_by: userId }, { transaction: t });
-      }
-    }
-
-    await t.commit();
-    return true;
-  } catch (error) {
-    await t.rollback();
-    throw error;
-  }
+  const result = await userAddressService.deleteAddress(userId, addressId);
+  if (result.error) return null;
+  return true;
 };
 
 // ─────────────────────────────────────────────────────────────

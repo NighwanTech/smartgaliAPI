@@ -1,5 +1,7 @@
 import societyServiceAccessRoutes from '../modules/society_service_access/society_service_access.routes.js';
 import locationMasterRoutes from '../modules/location_master/location_master.routes.js';
+import adminLocationRoutes from '../modules/location_master/admin_district.routes.js';
+import locationImportRoutes from '../modules/location_master/location_import.routes.js';
 import serviceConfigRoutes from '../modules/service_config/service_config.routes.js';
 import express from 'express';
 import exampleRoutes from '../modules/example/example.routes.js';
@@ -70,6 +72,7 @@ import complaintMasterRoutes, {
   locationTypeRouter,
 } from '../modules/complaint_master/complaint_master.routes.js';
 import superAdminComplaintRoutes from '../modules/society_complaint/super_admin_complaint.routes.js';
+import userAddressRoutes from '../modules/user_address/user_address.routes.js';
 import { generalApiLimiter } from '../middleware/rateLimit.middleware.js';
 const router = express.Router();
 // Shared Redis-backed general API limiter (skips /health)
@@ -79,6 +82,8 @@ router.use('/role', roleRoutes);
 router.use('/roles', roleRoutes);
 router.use('/permission', permissionRoutes);
 router.use('/permissions', permissionRoutes);
+router.use('/user/address', userAddressRoutes);
+router.use('/user/addresses', userAddressRoutes);
 router.use('/user', userRoutes);
 router.use('/user-profile', userProfileRoutes);
 router.use('/profile', profileRoutes);
@@ -165,6 +170,11 @@ router.use('/complaint-location-types', locationTypeRouter);
 router.use('/super-admin/complaints', superAdminComplaintRoutes);
 router.use('/admin/complaints', superAdminComplaintRoutes);
 router.use('/admin/complaint-masters', complaintMasterRoutes);
+// Admin Location Master Routes
+router.use('/admin/locations', adminLocationRoutes);
+router.use('/super-admin/locations', adminLocationRoutes);
+router.use('/admin/locations/import', locationImportRoutes);
+router.use('/super-admin/locations/import', locationImportRoutes);
 // Society Service Access & Provider Approval
 router.use('/society-service-access', societyServiceAccessRoutes);
 
