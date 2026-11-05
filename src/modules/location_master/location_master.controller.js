@@ -78,14 +78,25 @@ export const getDistrictById = async (req, res, next) => {
 
 export const getCities = async (req, res, next) => {
   try {
-    const { state_id, district_id } = req.query;
+    const { state_id, district_id, search } = req.query;
     const where = { is_active: true, is_deleted: false };
-    if (state_id) where.state_id = state_id;
-    if (district_id) where.district_id = district_id;
+    if (state_id) where.state_id = Number(state_id);
+    if (district_id) where.district_id = Number(district_id);
+
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { name: { [Op.like]: q } },
+        { city_name_local: { [Op.like]: q } },
+        { code: { [Op.like]: q } },
+        { lgd_local_body_code: { [Op.like]: q } },
+      ];
+    }
 
     const cities = await City.findAll({
       where,
       include: [
+        { model: State, as: 'state', attributes: ['id', 'name', 'code'], required: false },
         { model: District, as: 'district', attributes: ['id', 'district_name_english', 'code'], required: false },
       ],
       order: [['display_order', 'ASC'], ['name', 'ASC']],
@@ -98,12 +109,41 @@ export const getCities = async (req, res, next) => {
 
 export const getLocalities = async (req, res, next) => {
   try {
-    const { city_id, search } = req.query;
+    const { city_id, district_id, state_id, search } = req.query;
     const where = { is_active: true, is_deleted: false };
-    if (city_id) where.city_id = city_id;
+    if (city_id) where.city_id = Number(city_id);
+
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { name: { [Op.like]: q } },
+        { locality_name_local: { [Op.like]: q } },
+        { code: { [Op.like]: q } },
+      ];
+    }
+
+    const cityWhere = { is_deleted: false };
+    if (district_id) cityWhere.district_id = Number(district_id);
+    if (state_id) cityWhere.state_id = Number(state_id);
 
     const localities = await Locality.findAll({
       where,
+      include: [
+        {
+          model: City,
+          as: 'city',
+          where: Object.keys(cityWhere).length > 1 ? cityWhere : undefined,
+          attributes: ['id', 'name', 'code', 'district_id', 'state_id'],
+          required: Object.keys(cityWhere).length > 1,
+        },
+        {
+          model: Pincode,
+          as: 'pincodes',
+          attributes: ['id', 'pincode', 'area_name'],
+          through: { attributes: ['is_primary'] },
+          required: false,
+        },
+      ],
       order: [['display_order', 'ASC'], ['name', 'ASC']],
     });
     res.json({ success: true, data: localities });
@@ -114,13 +154,40 @@ export const getLocalities = async (req, res, next) => {
 
 export const getPincodes = async (req, res, next) => {
   try {
-    const { city_id, locality_id } = req.query;
+    const { city_id, locality_id, district_id, state_id, pincode, search } = req.query;
     const where = { is_active: true, is_deleted: false };
-    if (city_id) where.city_id = city_id;
-    if (locality_id) where.locality_id = locality_id;
+    if (city_id) where.city_id = Number(city_id);
+    if (district_id) where.district_id = Number(district_id);
+    if (state_id) where.state_id = Number(state_id);
+    if (pincode) where.pincode = String(pincode).trim();
+
+    const searchTerm = search || (!pincode && req.query.q ? req.query.q : null);
+    if (searchTerm && searchTerm.trim()) {
+      const q = `%${searchTerm.trim()}%`;
+      where[Op.or] = [
+        { pincode: { [Op.like]: q } },
+        { area_name: { [Op.like]: q } },
+      ];
+    }
 
     const pincodes = await Pincode.findAll({
       where,
+      include: [
+        {
+          model: City,
+          as: 'city',
+          attributes: ['id', 'name', 'code', 'district_id', 'state_id'],
+          required: false,
+        },
+        {
+          model: Locality,
+          as: 'localities',
+          attributes: ['id', 'name'],
+          through: { attributes: ['is_primary'] },
+          where: locality_id ? { id: Number(locality_id) } : undefined,
+          required: locality_id ? true : false,
+        },
+      ],
       order: [['display_order', 'ASC'], ['pincode', 'ASC']],
     });
     res.json({ success: true, data: pincodes });
@@ -134,12 +201,14 @@ export const getLocationHierarchy = async (req, res, next) => {
     const cities = await City.findAll({
       where: { is_active: true, is_deleted: false },
       include: [
+        { model: State, as: 'state', attributes: ['id', 'name', 'code'], required: false },
         { model: District, as: 'district', attributes: ['id', 'district_name_english', 'code'], required: false },
         { model: Locality, as: 'localities', where: { is_active: true, is_deleted: false }, required: false },
         { model: Pincode, as: 'pincodes', where: { is_active: true, is_deleted: false }, required: false },
       ],
       order: [
         ['display_order', 'ASC'],
+        ['name', 'ASC'],
         [{ model: Locality, as: 'localities' }, 'display_order', 'ASC'],
         [{ model: Pincode, as: 'pincodes' }, 'display_order', 'ASC'],
       ],

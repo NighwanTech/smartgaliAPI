@@ -80,46 +80,123 @@ export const City = sequelize.define('City', {
   state_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: State, key: 'id' } },
   district_id: { type: DataTypes.BIGINT, allowNull: true, references: { model: District, key: 'id' } },
   name: { type: DataTypes.STRING(100), allowNull: false },
+  city_name_local: { type: DataTypes.STRING(150), allowNull: true },
+  lgd_local_body_code: { type: DataTypes.STRING(50), allowNull: true },
+  city_type: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'MUNICIPAL_CORPORATION' },
   normalized_name: { type: DataTypes.STRING(100), allowNull: false },
   code: { type: DataTypes.STRING(20), allowNull: true },
   latitude: { type: DataTypes.DECIMAL(10, 8), allowNull: true },
   longitude: { type: DataTypes.DECIMAL(11, 8), allowNull: true },
+  source_system: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'MANUAL' },
+  source_last_updated: { type: DataTypes.DATE, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   display_order: { type: DataTypes.INTEGER, defaultValue: 0 },
+  city_name_english: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('name');
+    },
+    set(val) {
+      this.setDataValue('name', val);
+    },
+  },
   ...commonFields,
-}, { tableName: 'cities', timestamps: false });
+}, {
+  tableName: 'cities',
+  timestamps: false,
+  indexes: [
+    { name: 'idx_cities_state_id', fields: ['state_id'] },
+    { name: 'idx_cities_district_id', fields: ['district_id'] },
+    { name: 'idx_cities_state_norm', fields: ['state_id', 'normalized_name'] },
+    { name: 'idx_cities_status', fields: ['is_active', 'is_deleted'] },
+  ],
+});
 
 // 4. Locality Master
 export const Locality = sequelize.define('Locality', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
   city_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: City, key: 'id' } },
   name: { type: DataTypes.STRING(150), allowNull: false },
+  locality_name_local: { type: DataTypes.STRING(150), allowNull: true },
+  locality_type: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'URBAN_AREA' },
   normalized_name: { type: DataTypes.STRING(150), allowNull: false },
   code: { type: DataTypes.STRING(50), allowNull: true },
   latitude: { type: DataTypes.DECIMAL(10, 8), allowNull: true }, // reference centroid for map display / discovery
   longitude: { type: DataTypes.DECIMAL(11, 8), allowNull: true },
+  source_system: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'MANUAL' },
+  source_reference_code: { type: DataTypes.STRING(50), allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   display_order: { type: DataTypes.INTEGER, defaultValue: 0 },
+  locality_name_english: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('name');
+    },
+    set(val) {
+      this.setDataValue('name', val);
+    },
+  },
   ...commonFields,
-}, { tableName: 'localities', timestamps: false });
+}, {
+  tableName: 'localities',
+  timestamps: false,
+  indexes: [
+    { name: 'idx_localities_city_id', fields: ['city_id'] },
+    { name: 'idx_localities_city_norm', fields: ['city_id', 'normalized_name'] },
+    { name: 'idx_localities_status', fields: ['is_active', 'is_deleted'] },
+  ],
+});
 
 // 5. Pincode Master
 export const Pincode = sequelize.define('Pincode', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
   city_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: City, key: 'id' } },
   locality_id: { type: DataTypes.BIGINT, allowNull: true, references: { model: Locality, key: 'id' } },
+  state_id: { type: DataTypes.BIGINT, allowNull: true, references: { model: State, key: 'id' } },
+  district_id: { type: DataTypes.BIGINT, allowNull: true, references: { model: District, key: 'id' } },
   pincode: { type: DataTypes.STRING(10), allowNull: false },
   area_name: { type: DataTypes.STRING(150), allowNull: true },
+  source_system: { type: DataTypes.STRING(50), allowNull: true, defaultValue: 'MANUAL' },
+  source_last_updated: { type: DataTypes.DATE, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   display_order: { type: DataTypes.INTEGER, defaultValue: 0 },
   ...commonFields,
-}, { tableName: 'pincodes', timestamps: false });
+}, {
+  tableName: 'pincodes',
+  timestamps: false,
+  indexes: [
+    { name: 'idx_pincodes_code', fields: ['pincode'] },
+    { name: 'idx_pincodes_city_code', fields: ['city_id', 'pincode'] },
+    { name: 'idx_pincodes_status', fields: ['is_active', 'is_deleted'] },
+  ],
+});
 
-// 6. Location Import Batch (Phase 2 Bulk Import Engine)
+// 5.5 Locality-Pincode Many-to-Many Mapping Junction
+export const LocalityPincode = sequelize.define('LocalityPincode', {
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  locality_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: Locality, key: 'id' } },
+  pincode_id: { type: DataTypes.BIGINT, allowNull: false, references: { model: Pincode, key: 'id' } },
+  is_primary: { type: DataTypes.BOOLEAN, defaultValue: true },
+  source_system: { type: DataTypes.STRING(50), defaultValue: 'MANUAL' },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'locality_pincodes',
+  timestamps: false,
+  indexes: [
+    { name: 'uniq_loc_pin', fields: ['locality_id', 'pincode_id'], unique: true },
+    { name: 'idx_loc_pin_pincode', fields: ['pincode_id'] },
+  ],
+});
+
+// 6. Location Import Batch (Phase 2 & 3 Bulk Import Engine)
 export const LocationImportBatch = sequelize.define('LocationImportBatch', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
   batch_id: { type: DataTypes.STRING(100), allowNull: false, unique: true },
-  dataset_type: { type: DataTypes.ENUM('STATE', 'DISTRICT'), allowNull: false },
+  dataset_type: {
+    type: DataTypes.ENUM('STATE', 'DISTRICT', 'CITY', 'LOCALITY', 'PINCODE', 'POST_OFFICE'),
+    allowNull: false,
+  },
   file_name: { type: DataTypes.STRING(255), allowNull: false },
   file_size_bytes: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
   file_hash: { type: DataTypes.STRING(100), allowNull: true },
@@ -154,7 +231,7 @@ export const LocationImportBatch = sequelize.define('LocationImportBatch', {
   ],
 });
 
-// 7. Location Staged Record (Phase 2 Bulk Import Engine)
+// 7. Location Staged Record (Phase 2 & 3 Bulk Import Engine)
 export const LocationStagedRecord = sequelize.define('LocationStagedRecord', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
   batch_id: {
@@ -162,7 +239,10 @@ export const LocationStagedRecord = sequelize.define('LocationStagedRecord', {
     allowNull: false,
     references: { model: 'location_import_batches', key: 'batch_id' },
   },
-  dataset_type: { type: DataTypes.ENUM('STATE', 'DISTRICT'), allowNull: false },
+  dataset_type: {
+    type: DataTypes.ENUM('STATE', 'DISTRICT', 'CITY', 'LOCALITY', 'PINCODE', 'POST_OFFICE'),
+    allowNull: false,
+  },
   row_number: { type: DataTypes.INTEGER, allowNull: false },
   raw_data: {
     type: DataTypes.JSON,
@@ -249,6 +329,21 @@ Locality.belongsTo(City, { foreignKey: 'city_id', as: 'city' });
 City.hasMany(Pincode, { foreignKey: 'city_id', as: 'pincodes' });
 Pincode.belongsTo(City, { foreignKey: 'city_id', as: 'city' });
 Pincode.belongsTo(Locality, { foreignKey: 'locality_id', as: 'locality' });
+Locality.hasMany(Pincode, { foreignKey: 'locality_id', as: 'direct_pincodes' });
+
+// State & District <-> Pincode
+State.hasMany(Pincode, { foreignKey: 'state_id', as: 'pincodes' });
+Pincode.belongsTo(State, { foreignKey: 'state_id', as: 'state' });
+District.hasMany(Pincode, { foreignKey: 'district_id', as: 'pincodes' });
+Pincode.belongsTo(District, { foreignKey: 'district_id', as: 'district' });
+
+// Locality <-> Pincode Many-to-Many
+Locality.belongsToMany(Pincode, { through: LocalityPincode, foreignKey: 'locality_id', otherKey: 'pincode_id', as: 'pincodes' });
+Pincode.belongsToMany(Locality, { through: LocalityPincode, foreignKey: 'pincode_id', otherKey: 'locality_id', as: 'localities' });
+Locality.hasMany(LocalityPincode, { foreignKey: 'locality_id', as: 'locality_pincodes' });
+LocalityPincode.belongsTo(Locality, { foreignKey: 'locality_id', as: 'locality' });
+Pincode.hasMany(LocalityPincode, { foreignKey: 'pincode_id', as: 'locality_pincodes' });
+LocalityPincode.belongsTo(Pincode, { foreignKey: 'pincode_id', as: 'pincode_record' });
 
 // Import Batch Relationships
 LocationImportBatch.hasMany(LocationStagedRecord, { foreignKey: 'batch_id', sourceKey: 'batch_id', as: 'staged_records' });
@@ -263,6 +358,7 @@ export default {
   City,
   Locality,
   Pincode,
+  LocalityPincode,
   LocationImportBatch,
   LocationStagedRecord,
 };

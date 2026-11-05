@@ -130,6 +130,29 @@ export const createBooking = async (bookingData, actorUser) => {
     const effectiveLocality = (verifiedAddress && verifiedAddress.locality) || bookingData.locality || null;
     const effectivePincode = (verifiedAddress && verifiedAddress.pincode) || bookingData.pincode || null;
     const effectiveCity = (verifiedAddress && verifiedAddress.city) || bookingData.city || null;
+    const effectiveDistrict = (verifiedAddress && verifiedAddress.district) || bookingData.district || null;
+    const effectiveState = (verifiedAddress && verifiedAddress.state) || bookingData.state || null;
+
+    // Stage 1B: Retrieve location IDs strictly from verified database address record (Requirement 2 & 3)
+    const effectiveStateId = verifiedAddress && verifiedAddress.state_id != null
+      ? Number(verifiedAddress.state_id)
+      : (bookingData.state_id != null ? Number(bookingData.state_id) : (bookingData.stateId != null ? Number(bookingData.stateId) : null));
+
+    const effectiveDistrictId = verifiedAddress && verifiedAddress.district_id != null
+      ? Number(verifiedAddress.district_id)
+      : (bookingData.district_id != null ? Number(bookingData.district_id) : (bookingData.districtId != null ? Number(bookingData.districtId) : null));
+
+    const effectiveCityId = verifiedAddress && verifiedAddress.city_id != null
+      ? Number(verifiedAddress.city_id)
+      : (bookingData.city_id != null ? Number(bookingData.city_id) : (bookingData.cityId != null ? Number(bookingData.cityId) : null));
+
+    const effectiveLocalityId = verifiedAddress && verifiedAddress.locality_id != null
+      ? Number(verifiedAddress.locality_id)
+      : (bookingData.locality_id != null ? Number(bookingData.locality_id) : (bookingData.localityId != null ? Number(bookingData.localityId) : null));
+
+    const effectivePincodeId = verifiedAddress && verifiedAddress.pincode_id != null
+      ? Number(verifiedAddress.pincode_id)
+      : (bookingData.pincode_id != null ? Number(bookingData.pincode_id) : (bookingData.pincodeId != null ? Number(bookingData.pincodeId) : null));
 
     let authoritativeSocietyId = null;
     const requestedSocietyId = bookingData.society_id || (verifiedAddress && verifiedAddress.society_id);
@@ -217,9 +240,13 @@ export const createBooking = async (bookingData, actorUser) => {
         locality: effectiveLocality,
         pincode: effectivePincode,
         city: effectiveCity,
-        locality_id: bookingData.locality_id,
-        pincode_id: bookingData.pincode_id,
-        city_id: bookingData.city_id,
+        district: effectiveDistrict,
+        state: effectiveState,
+        locality_id: effectiveLocalityId,
+        pincode_id: effectivePincodeId,
+        city_id: effectiveCityId,
+        district_id: effectiveDistrictId,
+        state_id: effectiveStateId,
       },
       userRole: actorUser?.userRole || actorUser?.role || 'resident',
     });
@@ -307,9 +334,17 @@ export const createBooking = async (bookingData, actorUser) => {
       coverage_scope: coverageResult.coverageScope || listing.coverage_scope || 'PUBLIC',
       distance_km: coverageResult.distanceKm != null ? coverageResult.distanceKm : null,
       allowed_radius_km: coverageResult.allowedRadiusKm != null ? coverageResult.allowedRadiusKm : null,
-      city_id: bookingData.city_id || null,
-      locality_id: bookingData.locality_id || null,
-      pincode_id: bookingData.pincode_id || null,
+      state_id: effectiveStateId || null,
+      district_id: effectiveDistrictId || null,
+      city_id: effectiveCityId || null,
+      locality_id: effectiveLocalityId || null,
+      pincode_id: effectivePincodeId || null,
+      locality: effectiveLocality || null,
+      city: effectiveCity || null,
+      district: effectiveDistrict || null,
+      state: effectiveState || null,
+      pincode: effectivePincode || null,
+      service_address: effectiveServiceAddress || null,
       evaluated_at: new Date().toISOString(),
     };
 

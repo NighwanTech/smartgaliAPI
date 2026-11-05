@@ -3,6 +3,7 @@ import sequelize from '../../config/db.js';
 import { commonFields } from '../../utils/commonFields.js';
 import User from '../user/user.model.js';
 import SocietyProfile from '../society_profile/society_profile.model.js';
+import { State, District, City, Locality, Pincode } from '../location_master/location_master.models.js';
 
 /**
  * UserAddress — Enterprise saved delivery/home/office/society addresses.
@@ -79,6 +80,31 @@ const UserAddress = sequelize.define('UserAddress', {
     allowNull: true,
     references: { model: SocietyProfile, key: 'id' },
   },
+  state_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: State, key: 'id' },
+  },
+  district_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: District, key: 'id' },
+  },
+  city_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: City, key: 'id' },
+  },
+  locality_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: Locality, key: 'id' },
+  },
+  pincode_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: Pincode, key: 'id' },
+  },
   // Pre-composed, display-ready address string
   full_address: {
     type: DataTypes.TEXT,
@@ -111,5 +137,11 @@ User.hasMany(UserAddress, { foreignKey: 'user_id', as: 'addresses' });
 
 UserAddress.belongsTo(SocietyProfile, { foreignKey: 'society_id', as: 'society' });
 SocietyProfile.hasMany(UserAddress, { foreignKey: 'society_id', as: 'addresses' });
+
+UserAddress.belongsTo(State, { foreignKey: 'state_id', as: 'stateMaster' });
+UserAddress.belongsTo(District, { foreignKey: 'district_id', as: 'districtMaster' });
+UserAddress.belongsTo(City, { foreignKey: 'city_id', as: 'cityMaster' });
+UserAddress.belongsTo(Locality, { foreignKey: 'locality_id', as: 'localityMaster' });
+UserAddress.belongsTo(Pincode, { foreignKey: 'pincode_id', as: 'pincodeMaster' });
 
 export default UserAddress;

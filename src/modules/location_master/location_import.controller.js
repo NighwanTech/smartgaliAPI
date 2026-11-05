@@ -2,6 +2,9 @@ import multer from 'multer';
 import {
   stageStateCsv,
   stageDistrictCsv,
+  stageCityCsv,
+  stageLocalityCsv,
+  stagePincodeCsv,
   getImportPreview,
   confirmAndExecuteImport,
   listImportBatches,
@@ -48,18 +51,25 @@ export const stageImportCsv = async (req, res, next) => {
 
     // Auto-detect dataset type from file content if not specified
     if (!datasetType) {
-      const headerPreview = req.file.buffer.slice(0, 1024).toString('utf-8');
-      if (headerPreview.toLowerCase().includes('district')) {
+      const headerPreview = req.file.buffer.slice(0, 1024).toString('utf-8').toLowerCase();
+      if (headerPreview.includes('pin') || headerPreview.includes('postal')) {
+        datasetType = 'PINCODE';
+      } else if (headerPreview.includes('locality')) {
+        datasetType = 'LOCALITY';
+      } else if (headerPreview.includes('city')) {
+        datasetType = 'CITY';
+      } else if (headerPreview.includes('district')) {
         datasetType = 'DISTRICT';
-      } else if (headerPreview.toLowerCase().includes('state')) {
+      } else if (headerPreview.includes('state')) {
         datasetType = 'STATE';
       } else {
-        return errorResponse(res, 400, 'dataset_type is required (must be "STATE" or "DISTRICT").');
+        return errorResponse(res, 400, 'dataset_type is required (STATE, DISTRICT, CITY, LOCALITY, or PINCODE).');
       }
     }
 
-    if (datasetType !== 'STATE' && datasetType !== 'DISTRICT') {
-      return errorResponse(res, 400, 'Invalid dataset_type. Must be either "STATE" or "DISTRICT".');
+    const validTypes = ['STATE', 'DISTRICT', 'CITY', 'LOCALITY', 'PINCODE', 'POST_OFFICE'];
+    if (!validTypes.includes(datasetType)) {
+      return errorResponse(res, 400, `Invalid dataset_type '${datasetType}'. Must be one of: ${validTypes.join(', ')}.`);
     }
 
     const actorId = req.user?.id || req.user?.userId;
@@ -71,8 +81,26 @@ export const stageImportCsv = async (req, res, next) => {
         fileName: req.file.originalname,
         actorId,
       });
-    } else {
+    } else if (datasetType === 'DISTRICT') {
       batch = await stageDistrictCsv({
+        fileBuffer: req.file.buffer,
+        fileName: req.file.originalname,
+        actorId,
+      });
+    } else if (datasetType === 'CITY') {
+      batch = await stageCityCsv({
+        fileBuffer: req.file.buffer,
+        fileName: req.file.originalname,
+        actorId,
+      });
+    } else if (datasetType === 'LOCALITY') {
+      batch = await stageLocalityCsv({
+        fileBuffer: req.file.buffer,
+        fileName: req.file.originalname,
+        actorId,
+      });
+    } else if (datasetType === 'PINCODE' || datasetType === 'POST_OFFICE') {
+      batch = await stagePincodeCsv({
         fileBuffer: req.file.buffer,
         fileName: req.file.originalname,
         actorId,

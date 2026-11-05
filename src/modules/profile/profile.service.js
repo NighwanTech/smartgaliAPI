@@ -194,13 +194,21 @@ export const getAddresses = async (userId) => {
 
 export const createAddress = async (userId, data) => {
   const result = await userAddressService.createAddress(userId, data);
-  if (result.error) return null;
+  if (result.error) {
+    const err = new Error(result.error);
+    err.statusCode = result.status || 400;
+    throw err;
+  }
   return result.data;
 };
 
 export const updateAddress = async (userId, addressId, data) => {
   const result = await userAddressService.updateAddress(userId, addressId, data);
-  if (result.error) return null;
+  if (result.error) {
+    const err = new Error(result.error);
+    err.statusCode = result.status || 400;
+    throw err;
+  }
   return result.data;
 };
 

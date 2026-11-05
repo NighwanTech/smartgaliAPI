@@ -148,6 +148,8 @@ export const validateCustomerCoverageEligibility = async ({
     locality_id: custLocalityId,
     pincode_id: custPincodeId,
     city_id: custCityId,
+    district_id: custDistrictId,
+    state_id: custStateId,
   } = customerLocation;
 
   // 1. If society_id is provided, resolve society profile coordinates if customer coords missing
