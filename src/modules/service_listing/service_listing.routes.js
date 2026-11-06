@@ -10,6 +10,7 @@ import {
   updateListingSchema,
   moderateListingSchema,
   queryListingsSchema,
+  coverageAreaItemSchema,
 } from './service_listing.validation.js';
 
 const router = express.Router();
@@ -73,6 +74,10 @@ router.get('/', optionalAuthenticate, validateQuery(queryListingsSchema), servic
 router.get('/:id', optionalAuthenticate, serviceListingController.getListingById);
 router.post('/:id/calculate-price', optionalAuthenticate, serviceListingController.calculatePrice);
 router.all('/:id/check-coverage', optionalAuthenticate, serviceListingController.checkCoverage);
+router.get('/:id/coverage', optionalAuthenticate, serviceListingController.getListingCoverage);
+router.post('/:id/coverage', authenticateOrDevBypass, validateBody(coverageAreaItemSchema), serviceListingController.addListingCoverage);
+router.put('/:id/coverage/:areaId', authenticateOrDevBypass, validateBody(coverageAreaItemSchema), serviceListingController.updateListingCoverage);
+router.delete('/:id/coverage/:areaId', authenticateOrDevBypass, serviceListingController.deleteListingCoverage);
 router.post('/:id/favorite', optionalAuthenticate, serviceListingController.toggleFavorite);
 
 // ── Step 5: Enterprise Media & KYC Routes ────────────────────────────────────

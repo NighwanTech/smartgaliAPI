@@ -17,7 +17,7 @@ const addonItemSchema = Joi.object({
   is_enabled: Joi.boolean().default(true),
 });
 
-const coverageAreaItemSchema = Joi.object({
+export const coverageAreaItemSchema = Joi.object({
   id: Joi.number().integer().positive().allow(null).optional(),
   coverage_scope: Joi.string().valid('PUBLIC', 'SOCIETY', 'SOCIETY_AND_PUBLIC').default('PUBLIC'),
   coverage_method: Joi.string().valid('RADIUS', 'LOCALITY', 'PINCODE', 'CITY', 'SOCIETY').default('RADIUS'),
@@ -29,6 +29,7 @@ const coverageAreaItemSchema = Joi.object({
   origin_longitude: Joi.number().min(-180).max(180).allow(null).optional(),
   origin_address: Joi.string().trim().max(255).allow(null, '').optional(),
   radius_option_id: Joi.number().integer().positive().allow(null).optional(),
+  resolved_radius_km: Joi.number().min(0.1).max(500).allow(null).optional(),
   is_active: Joi.boolean().default(true),
   display_order: Joi.number().integer().min(0).default(0),
 });
@@ -129,6 +130,8 @@ export const queryListingsSchema = Joi.object({
   city: Joi.string().trim().max(100).allow(null, '').optional(),
   locality: Joi.string().trim().max(100).allow(null, '').optional(),
   pincode: Joi.string().trim().pattern(/^\d{6}$/).allow(null, '').optional(),
+  state_id: Joi.number().integer().positive().optional(),
+  district_id: Joi.number().integer().positive().optional(),
   city_id: Joi.number().integer().positive().optional(),
   locality_id: Joi.number().integer().positive().optional(),
   pincode_id: Joi.number().integer().positive().optional(),

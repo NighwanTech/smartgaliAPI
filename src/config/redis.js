@@ -133,6 +133,21 @@ export const cacheDel = async (key) => {
   try { await cacheClient.del(key); } catch { /* swallow */ }
 };
 
+export const cacheDelPattern = async (pattern) => {
+  if (!cacheClient) return;
+  try {
+    const prefix = cacheClient.options?.keyPrefix || '';
+    const fullPattern = pattern.startsWith(prefix) ? pattern : `${prefix}${pattern}`;
+    const keys = await cacheClient.keys(fullPattern);
+    if (keys && keys.length > 0) {
+      const strippedKeys = prefix
+        ? keys.map((k) => (k.startsWith(prefix) ? k.slice(prefix.length) : k))
+        : keys;
+      await cacheClient.del(...strippedKeys);
+    }
+  } catch { /* swallow */ }
+};
+
 // â”€â”€ Idempotency key helpers (TTL = 24 h) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const IDEMPOTENCY_TTL = 86400; // 24 hours in seconds
 
@@ -158,5 +173,5 @@ export const getPubClient  = () => pubClient;
 export const getSubClient  = () => subClient;
 export const getIsRedisAvailable = () => isRedisAvailable;
 
-export default { createRedisClients, closeRedisClients, cacheSet, cacheGet, cacheDel };
+export default { createRedisClients, closeRedisClients, cacheSet, cacheGet, cacheDel, cacheDelPattern };
 

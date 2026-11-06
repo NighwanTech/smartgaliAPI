@@ -285,3 +285,48 @@ export const toggleFavorite = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getListingCoverage = async (req, res, next) => {
+  try {
+    const areas = await serviceListingService.getListingCoverageAreas(req.params.id, req.user);
+    return successResponse(res, 200, 'Listing coverage areas fetched successfully', areas);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addListingCoverage = async (req, res, next) => {
+  try {
+    const area = await serviceListingService.addListingCoverageArea(req.params.id, req.body, req.user);
+    return successResponse(res, 201, 'Coverage area added successfully', area);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateListingCoverage = async (req, res, next) => {
+  try {
+    const area = await serviceListingService.updateListingCoverageArea(
+      req.params.id,
+      req.params.areaId,
+      req.body,
+      req.user
+    );
+    return successResponse(res, 200, 'Coverage area updated successfully', area);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteListingCoverage = async (req, res, next) => {
+  try {
+    const result = await serviceListingService.deleteListingCoverageArea(
+      req.params.id,
+      req.params.areaId,
+      req.user
+    );
+    return successResponse(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};

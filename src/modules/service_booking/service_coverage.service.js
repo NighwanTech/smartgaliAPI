@@ -86,7 +86,7 @@ export const resolveProviderCoverageConfig = async (listing, providerProfile) =>
     }
   }
 
-  const providerCity = profileArea?.city || 'Patna';
+  const providerCity = profileArea?.city || null;
   const providerLocalities = Array.isArray(profileArea?.localities) ? profileArea.localities : [];
   const providerPincodes = Array.isArray(profileArea?.pincodes) ? profileArea.pincodes : [];
 
@@ -97,8 +97,12 @@ export const resolveProviderCoverageConfig = async (listing, providerProfile) =>
     effectiveRadiusKm = Number(profileArea.radiusKm);
   }
 
-  const centerLat = profileArea?.centerLatitude != null ? Number(profileArea.centerLatitude) : 25.5941;
-  const centerLon = profileArea?.centerLongitude != null ? Number(profileArea.centerLongitude) : 85.1376;
+  const centerLat = profileArea?.centerLatitude != null
+    ? Number(profileArea.centerLatitude)
+    : (providerProfile?.latitude != null ? Number(providerProfile.latitude) : null);
+  const centerLon = profileArea?.centerLongitude != null
+    ? Number(profileArea.centerLongitude)
+    : (providerProfile?.longitude != null ? Number(providerProfile.longitude) : null);
 
   return {
     areaTypeCode: areaType?.code || 'RADIUS',
@@ -251,9 +255,6 @@ export const validateCustomerCoverageEligibility = async ({
           } else if (providerProfile?.latitude != null && providerProfile?.longitude != null) {
             originLat = Number(providerProfile.latitude);
             originLon = Number(providerProfile.longitude);
-          } else {
-            originLat = 25.5941;
-            originLon = 85.1376;
           }
         }
 
@@ -271,10 +272,8 @@ export const validateCustomerCoverageEligibility = async ({
           allowedRadius = 30.0;
         }
 
-        if (originLat != null && originLon != null && allowedRadius != null) {
-          const effectiveCustLat = custLat != null ? Number(custLat) : 25.5941;
-          const effectiveCustLon = custLon != null ? Number(custLon) : 85.1376;
-          const dist = calculateHaversineDistanceKm(effectiveCustLat, effectiveCustLon, originLat, originLon);
+        if (originLat != null && originLon != null && allowedRadius != null && custLat != null && custLon != null) {
+          const dist = calculateHaversineDistanceKm(Number(custLat), Number(custLon), originLat, originLon);
           if (dist != null && dist <= allowedRadius) {
             matchedArea = area;
             matchedDistanceKm = dist;
@@ -287,11 +286,11 @@ export const validateCustomerCoverageEligibility = async ({
         if (!matchedArea && (area.origin_address || area.area_name)) {
           const areaText = `${area.origin_address || ''} ${area.area_name || ''}`.toLowerCase();
           const targetPin = String(custPincode || '').trim();
-          const targetCity = String(custCity || 'patna').toLowerCase().trim();
+          const targetCity = String(custCity || '').toLowerCase().trim();
           const targetAddr = String(custAddress || '').toLowerCase();
 
           const pinMatch = Boolean(targetPin && (areaText.includes(targetPin) || targetAddr.includes(targetPin)));
-          const cityMatch = Boolean(targetCity && (areaText.includes(targetCity) || targetAddr.includes('patna')));
+          const cityMatch = Boolean(targetCity && (areaText.includes(targetCity) || targetAddr.includes(targetCity)));
           if (pinMatch || cityMatch) {
             matchedArea = area;
             matchedDistanceKm = null;
@@ -307,15 +306,13 @@ export const validateCustomerCoverageEligibility = async ({
         if (custLocalityId && area.locality_id && Number(custLocalityId) === Number(area.locality_id)) {
           isLocalityMatch = true;
         } else if (area.locality?.name || custLocality || area.origin_address || custAddress) {
-          const cleanArea = (area.locality?.name || area.origin_address || '').replace(/,\s*patna/i, '').replace(/patna/i, '').trim().toLowerCase();
-          const cleanLoc = (custLocality || '').replace(/,\s*patna/i, '').replace(/patna/i, '').trim().toLowerCase();
+          const cleanArea = (area.locality?.name || area.origin_address || '').trim().toLowerCase();
+          const cleanLoc = (custLocality || '').trim().toLowerCase();
           const cleanAddr = (custAddress || '').toLowerCase();
-          const rawArea = (area.locality?.name || area.origin_address || '').trim().toLowerCase();
 
           if (cleanArea && (
             (cleanLoc && (cleanLoc === cleanArea || cleanLoc.includes(cleanArea) || cleanArea.includes(cleanLoc))) ||
-            (cleanAddr && cleanAddr.includes(cleanArea)) ||
-            (cleanLoc && rawArea.includes(cleanLoc))
+            (cleanAddr && cleanAddr.includes(cleanArea))
           )) {
             isLocalityMatch = true;
           }
@@ -362,9 +359,9 @@ export const validateCustomerCoverageEligibility = async ({
         if (custCityId && area.city_id && Number(custCityId) === Number(area.city_id)) {
           isCityMatch = true;
         } else {
-          const areaCity = (area.city?.name || area.origin_address || area.area_name || 'Patna').trim().toLowerCase();
-          const targetCity = (custCity || 'Patna').trim().toLowerCase();
-          if (areaCity.includes(targetCity) || targetCity.includes(areaCity) || (areaCity.includes('patna') && targetCity.includes('patna'))) {
+          const areaCity = (area.city?.name || area.origin_address || area.area_name || '').trim().toLowerCase();
+          const targetCity = (custCity || '').trim().toLowerCase();
+          if (areaCity && targetCity && (areaCity.includes(targetCity) || targetCity.includes(areaCity))) {
             isCityMatch = true;
           }
         }

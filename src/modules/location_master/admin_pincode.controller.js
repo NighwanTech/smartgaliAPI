@@ -11,6 +11,7 @@ import {
 import AuditLog from '../audit_log/audit_log.model.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
+import { invalidateLocationCache } from './location_cache.service.js';
 
 /**
  * GET /api/v1/admin/locations/pincodes
@@ -234,6 +235,7 @@ export const createPincode = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('PINCODE');
 
     const complete = await Pincode.findByPk(pinRecord.id, {
       include: [
@@ -375,6 +377,7 @@ export const updatePincode = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('PINCODE');
 
     const complete = await Pincode.findByPk(id, {
       include: [
@@ -443,6 +446,7 @@ export const togglePincodeStatus = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('PINCODE');
 
     return successResponse(
       res,

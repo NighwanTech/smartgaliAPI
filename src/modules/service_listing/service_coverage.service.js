@@ -9,6 +9,7 @@ import { City, Locality, Pincode } from '../location_master/location_master.mode
 import SocietyProfile from '../society_profile/society_profile.model.js';
 import SocietyServiceAccess, { SOCIETY_SERVICE_ACCESS_STATUS } from '../society_service_access/society_service_access.model.js';
 import { listingMasterIncludes } from './service_listing.service.js';
+import { validateCustomerCoverageEligibility } from '../service_booking/service_coverage.service.js';
 
 /**
  * Calculates Great-Circle Distance between two geographic points using Haversine formula.
@@ -152,202 +153,28 @@ export const evaluateLiveCoverage = async ({ listingId, customerLocation = {} })
     providerAvailabilityLabel = 'Account Suspended';
   }
 
-  let {
-    latitude: custLat,
-    longitude: custLon,
-    locality: custLocality,
-    pincode: custPincode,
-    city: custCity,
-    society_id: custSocietyId,
-    service_address: custAddress,
-    location_type: locationType = 'public',
-  } = customerLocation;
+  // 2. Authoritative Coverage Evaluation via Shared Engine
+  const coverageResult = await validateCustomerCoverageEligibility({
+    listing,
+    providerProfile: provider,
+    customerLocation,
+    userRole: customerLocation.location_type === 'society' ? 'resident' : 'guest',
+  });
 
-  custLat = custLat != null ? Number(custLat) : null;
-  custLon = custLon != null ? Number(custLon) : null;
-
-  // 2. Society Exclusive Guard
-  const scope = (listing.coverage_scope || 'PUBLIC').toUpperCase();
-  if (scope === 'SOCIETY' && (locationType !== 'society' || !custSocietyId)) {
-    return {
-      is_eligible: false,
-      is_provider_available: isProviderAvailable,
-      provider_availability: providerAvailabilityLabel,
-      distance_km: null,
-      allowed_radius_km: 10,
-      coverage_zone: 'Exclusive Society Service',
-      matched_method: 'SOCIETY',
-      reason: 'This service is exclusively available to approved residential societies.',
-    };
-  }
-
-  // 3. Society Service Access Verification (if society booking)
-  if (custSocietyId) {
-    const societyAccessRecord = await SocietyServiceAccess.findOne({
-      where: {
-        service_id: listingId,
-        society_id: custSocietyId,
-        is_deleted: false,
-      },
-    });
-
-    if (societyAccessRecord && societyAccessRecord.status !== SOCIETY_SERVICE_ACCESS_STATUS.APPROVED) {
-      return {
-        is_eligible: false,
-        is_provider_available: isProviderAvailable,
-        provider_availability: providerAvailabilityLabel,
-        distance_km: null,
-        allowed_radius_km: 10,
-        coverage_zone: 'Society Access Restricted',
-        matched_method: 'SOCIETY',
-        reason: `Provider service access to this residential society is currently ${societyAccessRecord.status}.`,
-      };
-    }
-  }
-
-  // 4. Resolve multi-coverage areas
-  const coverageAreas = await resolveCoverageAreas(listingId);
-
-  if (coverageAreas && coverageAreas.length > 0) {
-    let minDistance = null;
-    let maxAllowed = 10;
-    let matchedArea = null;
-
-    // Check Society Method
-    if (locationType === 'society' && custSocietyId) {
-      const socArea = coverageAreas.find(
-        (a) => (a.coverage_method || '').toUpperCase() === 'SOCIETY' && Number(a.society_id) === Number(custSocietyId)
-      );
-      if (socArea) {
-        return {
-          is_eligible: isProviderAvailable,
-          is_provider_available: isProviderAvailable,
-          provider_availability: providerAvailabilityLabel,
-          distance_km: null,
-          allowed_radius_km: null,
-          coverage_zone: `${socArea.society?.societyName || 'Residential Society'} (Approved)`,
-          matched_method: 'SOCIETY',
-          reason: isProviderAvailable
-            ? 'Approved service access for your residential society.'
-            : `Service provider is currently ${providerAvailabilityLabel}.`,
-        };
-      }
-    }
-
-    // Check Locality Method
-    if (custLocality && custLocality.trim().length > 0) {
-      const targetLoc = custLocality.trim().toLowerCase();
-      const locArea = coverageAreas.find((a) => {
-        if ((a.coverage_method || '').toUpperCase() !== 'LOCALITY') return false;
-        const aLoc = (a.locality?.name || a.origin_address || '').trim().toLowerCase();
-        return aLoc.length > 0 && (aLoc.includes(targetLoc) || targetLoc.includes(aLoc));
-      });
-      if (locArea) {
-        return {
-          is_eligible: isProviderAvailable,
-          is_provider_available: isProviderAvailable,
-          provider_availability: providerAvailabilityLabel,
-          distance_km: null,
-          allowed_radius_km: null,
-          coverage_zone: `${custLocality} (Public Area)`,
-          matched_method: 'LOCALITY',
-          reason: isProviderAvailable
-            ? `Service is directly available in your locality (${custLocality}).`
-            : `Service provider is currently ${providerAvailabilityLabel}.`,
-        };
-      }
-    }
-
-    // Check Pincode Method
-    if (custPincode && custPincode.trim().length > 0) {
-      const targetPin = custPincode.trim();
-      const pinArea = coverageAreas.find((a) => {
-        if ((a.coverage_method || '').toUpperCase() !== 'PINCODE') return false;
-        const aPin = String(a.pincode?.pincode || a.origin_address || '').trim();
-        return aPin.length > 0 && aPin.includes(targetPin);
-      });
-      if (pinArea) {
-        return {
-          is_eligible: isProviderAvailable,
-          is_provider_available: isProviderAvailable,
-          provider_availability: providerAvailabilityLabel,
-          distance_km: null,
-          allowed_radius_km: null,
-          coverage_zone: `PIN ${targetPin} (Public Area)`,
-          matched_method: 'PINCODE',
-          reason: isProviderAvailable
-            ? `Service is directly available in your postal pincode (${targetPin}).`
-            : `Service provider is currently ${providerAvailabilityLabel}.`,
-        };
-      }
-    }
-
-    // Check Radial Distance Method
-    for (const a of coverageAreas) {
-      const radius = a.resolved_radius_km != null ? Number(a.resolved_radius_km) : (a.radius_option?.radius_km ? Number(a.radius_option.radius_km) : 10);
-      if (radius > maxAllowed) maxAllowed = radius;
-
-      const oLat = a.origin_latitude != null ? Number(a.origin_latitude) : null;
-      const oLon = a.origin_longitude != null ? Number(a.origin_longitude) : null;
-
-      if (oLat != null && oLon != null && custLat != null && custLon != null) {
-        const dist = calculateHaversineDistanceKm(custLat, custLon, oLat, oLon);
-        if (dist != null && (minDistance == null || dist < minDistance)) {
-          minDistance = dist;
-          matchedArea = a;
-        }
-      }
-    }
-
-    if (minDistance != null) {
-      const isWithin = minDistance <= maxAllowed;
-      const eligible = isWithin && isProviderAvailable;
-      const zoneName = custLocality ? `${custLocality} (Public Area)` : (matchedArea?.origin_address || 'Service Zone');
-      return {
-        is_eligible: eligible,
-        is_provider_available: isProviderAvailable,
-        provider_availability: providerAvailabilityLabel,
-        distance_km: minDistance,
-        allowed_radius_km: maxAllowed,
-        coverage_zone: zoneName,
-        matched_method: 'RADIUS',
-        reason: !isWithin
-          ? `Service location is ${minDistance} km away, exceeding maximum service radius of ${maxAllowed} km.`
-          : (!isProviderAvailable
-              ? `Service provider is currently ${providerAvailabilityLabel}.`
-              : `Your location is ${minDistance} km away (within ${maxAllowed} km radius).`),
-      };
-    }
-  }
-
-  // 5. Fallback to Provider Base Profile Area
-  const legacyConfig = await resolveProviderCoverageConfig(listing, provider);
-  let distanceKm = null;
-
-  if (custLat != null && custLon != null && legacyConfig.centerLatitude != null && legacyConfig.centerLongitude != null) {
-    distanceKm = calculateHaversineDistanceKm(custLat, custLon, legacyConfig.centerLatitude, legacyConfig.centerLongitude);
-  }
-
-  const allowedRadius = legacyConfig.radiusKm || 10;
-  const isWithinRadius = distanceKm == null || distanceKm <= allowedRadius;
-  const eligible = isWithinRadius && isProviderAvailable;
-  const zoneName = custLocality ? `${custLocality} (Public Area)` : `${legacyConfig.city || 'Patna'} Perimeter`;
+  const isEligible = Boolean(coverageResult.isEligible && isProviderAvailable);
 
   return {
-    is_eligible: eligible,
+    is_eligible: isEligible,
     is_provider_available: isProviderAvailable,
     provider_availability: providerAvailabilityLabel,
-    distance_km: distanceKm != null ? distanceKm : null,
-    allowed_radius_km: allowedRadius,
-    coverage_zone: zoneName,
-    matched_method: 'RADIUS',
-    reason: !isWithinRadius
-      ? `Service location is ${distanceKm} km away, exceeding provider standard radius of ${allowedRadius} km.`
-      : (!isProviderAvailable
-          ? `Service provider is currently ${providerAvailabilityLabel}.`
-          : (distanceKm != null
-              ? `Your location is ${distanceKm} km away (within ${allowedRadius} km radius).`
-              : 'Your location falls within provider standard service area.')),
+    distance_km: coverageResult.distanceKm ?? null,
+    allowed_radius_km: coverageResult.allowedRadiusKm ?? coverageResult.maxAllowedRadiusKm ?? 15,
+    coverage_zone: coverageResult.matchedArea?.origin_address || customerLocation.locality || customerLocation.city || 'Service Perimeter',
+    matched_method: coverageResult.coverageMethod || coverageResult.matchedArea?.coverage_method || 'RADIUS',
+    reason: !isProviderAvailable
+      ? `Service provider is currently ${providerAvailabilityLabel}.`
+      : coverageResult.reason,
+    matched_area_id: coverageResult.matchedCoverageAreaId || null,
   };
 };
 

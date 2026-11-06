@@ -10,6 +10,7 @@ import {
 import AuditLog from '../audit_log/audit_log.model.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
+import { invalidateLocationCache } from './location_cache.service.js';
 
 export const normalizeCityName = (name) => {
   return String(name || '')
@@ -224,6 +225,7 @@ export const createCity = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('CITY');
 
     const complete = await City.findByPk(city.id, {
       include: [
@@ -355,6 +357,7 @@ export const updateCity = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('CITY');
 
     const complete = await City.findByPk(id, {
       include: [
@@ -411,6 +414,7 @@ export const toggleCityStatus = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('CITY');
 
     return successResponse(
       res,

@@ -1,4 +1,4 @@
-﻿import path from 'path';
+import path from 'path';
 import fs from 'fs';
 import env from '../../config/env.js';
 import { Op } from 'sequelize';
@@ -218,14 +218,7 @@ export const updateMyProfile = async (userId, updateData) => {
 
 export const getMyServiceArea = async (userId) => {
   const profile = await getOrCreateProviderProfile(userId);
-  return profile.service_area || {
-    city: 'Patna',
-    localities: ['Kankarbagh', 'Boring Road'],
-    pincodes: ['800020', '800001'],
-    radiusKm: 15,
-    centerLatitude: 25.5941,
-    centerLongitude: 85.1376,
-  };
+  return profile.service_area || null;
 };
 
 export const updateMyServiceArea = async (userId, areaData) => {

@@ -60,12 +60,19 @@ export const updateProviderProfileSchema = Joi.object({
 
 export const updateServiceAreaSchema = Joi.object({
   city: Joi.string().trim().min(2).max(100).required(),
+  state_id: Joi.number().integer().positive().optional().allow(null),
+  district_id: Joi.number().integer().positive().optional().allow(null),
+  city_id: Joi.number().integer().positive().optional().allow(null),
+  locality_id: Joi.number().integer().positive().optional().allow(null),
+  pincode_id: Joi.number().integer().positive().optional().allow(null),
   localities: Joi.array().items(Joi.string().trim().min(1).max(100)).default([]),
   pincodes: Joi.array().items(Joi.string().trim().pattern(/^\d{6}$/)).default([]),
   radiusKm: Joi.number().min(0.5).max(100).default(10),
-  centerLatitude: Joi.number().min(-90).max(90).optional(),
-  centerLongitude: Joi.number().min(-180).max(180).optional(),
-});
+  radius_km: Joi.number().min(0.5).max(100).optional(),
+  centerLatitude: Joi.number().min(-90).max(90).optional().allow(null),
+  centerLongitude: Joi.number().min(-180).max(180).optional().allow(null),
+  coverageAreas: Joi.array().items(Joi.object().unknown(true)).optional(),
+}).unknown(true);
 
 export const updateAvailabilitySchema = Joi.object({
   weeklySchedule: Joi.array().items(Joi.object({

@@ -33,8 +33,10 @@ import {
   ServicePackageLevel,
   ServiceAddonType,
 } from '../service_config/service_config.models.js';
+import sequelize from '../../config/db.js';
 import ServiceCoverageArea from './service_coverage_area.model.js';
-import { City, Locality, Pincode } from '../location_master/location_master.models.js';
+import { State, District, City, Locality, Pincode } from '../location_master/location_master.models.js';
+import { invalidateListingCoverageCache } from '../location_master/location_cache.service.js';
 import SocietyProfile from '../society_profile/society_profile.model.js';
 
 // Standard master validation helper: checks if record exists and is_active
@@ -423,18 +425,17 @@ export const createListing = async (listingData, actorUser) => {
     // Enterprise Fallback: auto-generate default coverage area from provider profile service_area or single listing radius_option_id
     let provLat = null;
     let provLng = null;
-    let provCity = 'Patna';
     let provRadius = 20;
 
     let sa = providerProfile?.service_area;
     if (typeof sa === 'string') {
       try { sa = JSON.parse(sa); } catch (_) { sa = null; }
     }
+    let provCity = sa?.city || providerProfile?.business_name || null;
     if (sa?.centerLatitude != null && sa?.centerLongitude != null) {
       provLat = Number(sa.centerLatitude);
       provLng = Number(sa.centerLongitude);
       provRadius = Number(sa.radiusKm) || 20;
-      provCity = sa.city || 'Patna';
     } else if (providerProfile?.latitude != null && providerProfile?.longitude != null) {
       provLat = Number(providerProfile.latitude);
       provLng = Number(providerProfile.longitude);
@@ -447,7 +448,7 @@ export const createListing = async (listingData, actorUser) => {
         coverage_method: 'RADIUS',
         origin_latitude: provLat,
         origin_longitude: provLng,
-        origin_address: `${provCity} Service Hub`,
+        origin_address: provCity ? `${provCity} Service Hub` : 'Provider Base Hub',
         radius_option_id: listingRecord.radius_option_id || null,
         resolved_radius_km: provRadius,
         is_active: true,
@@ -460,9 +461,9 @@ export const createListing = async (listingData, actorUser) => {
           service_id: listingRecord.id,
           coverage_scope: listingRecord.coverage_scope || 'PUBLIC',
           coverage_method: 'RADIUS',
-          origin_latitude: 25.6022,
-          origin_longitude: 85.1610,
-          origin_address: 'Patna Service Base',
+          origin_latitude: null,
+          origin_longitude: null,
+          origin_address: provCity ? `${provCity} Service Hub` : 'Provider Service Base',
           radius_option_id: listingRecord.radius_option_id,
           resolved_radius_km: Number(ro.radius_km),
           is_active: true,
@@ -832,9 +833,12 @@ export const getAllListings = async (query = {}) => {
     service_subcategory_id,
     pricing_model_id,
     execution_method_id,
+    state_id,
+    district_id,
     city_id,
     locality_id,
     pincode_id,
+    society_id,
     locality,
     pincode,
     city,
@@ -888,7 +892,93 @@ export const getAllListings = async (query = {}) => {
     if (max_price != null) where.price[Op.lte] = max_price;
   }
 
-  // Comprehensive search handled in post-fetch filter across categories, subcategories, providers, and listings
+  // ── Enterprise SQL Location-ID Filtering ─────────────────────────────────────
+  const locationConditions = [];
+  const parsedStateId = state_id ? Number(state_id) : null;
+  const parsedDistrictId = district_id ? Number(district_id) : null;
+  const parsedCityId = city_id ? Number(city_id) : null;
+  const parsedLocalityId = locality_id ? Number(locality_id) : null;
+  const parsedPincodeId = pincode_id ? Number(pincode_id) : null;
+  const parsedSocietyId = society_id ? Number(society_id) : null;
+
+  if (parsedSocietyId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND sca.coverage_method = 'SOCIETY' 
+        AND sca.society_id = ${parsedSocietyId}
+    )`));
+  } else if (parsedPincodeId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND (
+          (sca.coverage_method = 'PINCODE' AND sca.pincode_id = ${parsedPincodeId})
+          OR (sca.coverage_method = 'CITY' AND sca.city_id = (SELECT city_id FROM pincodes WHERE id = ${parsedPincodeId} LIMIT 1))
+          OR (sca.coverage_method = 'RADIUS' AND (sca.city_id IS NULL OR sca.city_id = (SELECT city_id FROM pincodes WHERE id = ${parsedPincodeId} LIMIT 1)))
+        )
+    )`));
+  } else if (parsedLocalityId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND (
+          (sca.coverage_method = 'LOCALITY' AND sca.locality_id = ${parsedLocalityId})
+          OR (sca.coverage_method = 'CITY' AND sca.city_id = (SELECT city_id FROM localities WHERE id = ${parsedLocalityId} LIMIT 1))
+          OR (sca.coverage_method = 'RADIUS' AND (sca.city_id IS NULL OR sca.city_id = (SELECT city_id FROM localities WHERE id = ${parsedLocalityId} LIMIT 1)))
+        )
+    )`));
+  } else if (parsedCityId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND (
+          sca.coverage_method = 'RADIUS'
+          OR sca.coverage_method = 'CITY'
+          OR sca.city_id = ${parsedCityId}
+          OR sca.locality_id IN (SELECT id FROM localities WHERE city_id = ${parsedCityId} AND is_deleted = false)
+          OR sca.pincode_id IN (SELECT id FROM pincodes WHERE city_id = ${parsedCityId} AND is_deleted = false)
+        )
+    )`));
+  } else if (parsedDistrictId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND sca.city_id IN (SELECT id FROM cities WHERE district_id = ${parsedDistrictId} AND is_deleted = false)
+    )`));
+  } else if (parsedStateId) {
+    locationConditions.push(sequelize.literal(`EXISTS (
+      SELECT 1 FROM service_coverage_areas AS sca 
+      WHERE sca.service_id = ServiceListing.id 
+        AND sca.is_active = true 
+        AND sca.is_deleted = false 
+        AND sca.city_id IN (SELECT id FROM cities WHERE state_id = ${parsedStateId} AND is_deleted = false)
+    )`));
+  }
+
+  if (locationConditions.length > 0) {
+    where[Op.and] = where[Op.and] || [];
+    where[Op.and].push({
+      [Op.or]: [
+        ...locationConditions,
+        // Legacy fallback: listings with no active service_coverage_areas records at all
+        sequelize.literal(`NOT EXISTS (
+          SELECT 1 FROM service_coverage_areas AS sca 
+          WHERE sca.service_id = ServiceListing.id AND sca.is_deleted = false
+        )`),
+      ],
+    });
+  }
 
   // Fetch candidate approved listings with provider and coverage areas
   const rows = await ServiceListing.findAll({
@@ -946,7 +1036,94 @@ export const getAllListings = async (query = {}) => {
       continue;
     }
 
-    // 3. City filter if specified
+    // 2. Location ID & Multi-Coverage Verification
+    if (parsedCityId || parsedLocalityId || parsedPincodeId || parsedDistrictId || parsedStateId || parsedSocietyId) {
+      const areas = r.coverage_areas || [];
+      if (areas.length > 0) {
+        let isCovered = false;
+        for (const a of areas) {
+          if (!a.is_active || a.is_deleted) continue;
+          const method = (a.coverage_method || 'RADIUS').toUpperCase();
+
+          if (method === 'SOCIETY') {
+            if (parsedSocietyId && Number(a.society_id) === parsedSocietyId) {
+              isCovered = true;
+              break;
+            }
+            continue;
+          }
+
+          if (method === 'CITY') {
+            if (parsedCityId && Number(a.city_id) === Number(parsedCityId)) {
+              isCovered = true;
+              break;
+            }
+            if (parsedLocalityId || parsedPincodeId) {
+              isCovered = true;
+              break;
+            }
+          }
+
+          if (method === 'LOCALITY') {
+            if (parsedLocalityId && Number(a.locality_id) === parsedLocalityId) {
+              isCovered = true;
+              break;
+            }
+          }
+
+          if (method === 'PINCODE') {
+            if (parsedPincodeId && Number(a.pincode_id) === parsedPincodeId) {
+              isCovered = true;
+              break;
+            }
+          }
+
+          if (method === 'RADIUS') {
+            // A RADIUS service covers customers within its radius perimeter
+            if (custLat != null && custLng != null && a.origin_latitude != null && a.origin_longitude != null) {
+              const radDist = calculateHaversineDistanceKm(custLat, custLng, Number(a.origin_latitude), Number(a.origin_longitude));
+              const maxRad = a.resolved_radius_km != null ? Number(a.resolved_radius_km) : (searchRadius != null ? searchRadius : 35);
+              if (radDist != null && radDist <= maxRad) {
+                isCovered = true;
+                break;
+              }
+            } else {
+              // When customer coordinates are not supplied, allow if in same city or area
+              if (parsedCityId && (a.city_id == null || Number(a.city_id) === Number(parsedCityId))) {
+                isCovered = true;
+                break;
+              }
+              if (parsedLocalityId || parsedPincodeId) {
+                isCovered = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (parsedDistrictId && !parsedCityId && areas.some(a => a.city?.district_id === parsedDistrictId)) {
+          isCovered = true;
+        }
+        if (parsedStateId && !parsedDistrictId && !parsedCityId && areas.some(a => a.city?.state_id === parsedStateId)) {
+          isCovered = true;
+        }
+
+        // If listing has coverage areas but none match the customer's specified master location ID, reject
+        if (!isCovered) {
+          continue;
+        }
+      } else {
+        // Legacy listing fallback without service_coverage_areas rows
+        if (parsedCityId && city) {
+          const provCity = (sa?.city || '').toLowerCase().trim();
+          if (provCity && !provCity.includes(city.toLowerCase().trim())) {
+            continue;
+          }
+        }
+      }
+    }
+
+    // 3. City text filter if specified
     if (city && typeof city === 'string' && city.trim().length > 0) {
       const targetCity = city.trim().toLowerCase();
       const provCity = (sa?.city || '').trim().toLowerCase();
@@ -964,8 +1141,8 @@ export const getAllListings = async (query = {}) => {
       }
     }
 
-    // 4. Locality filter if specified and no GPS coords
-    if (locality && custLat == null) {
+    // 4. Locality text filter
+    if (locality && typeof locality === 'string' && locality.trim().length > 0) {
       const locLower = locality.toLowerCase().trim();
       let localityMatched = false;
       if (sa && Array.isArray(sa.localities)) {
@@ -974,7 +1151,11 @@ export const getAllListings = async (query = {}) => {
         }
       }
       if (!localityMatched && Array.isArray(r.coverage_areas)) {
-        if (r.coverage_areas.some(ca => (ca.locality?.name || ca.origin_address || '').toLowerCase().includes(locLower))) {
+        if (r.coverage_areas.some(ca => {
+          if (ca.coverage_method === 'CITY' || ca.coverage_method === 'RADIUS') return true;
+          const caLoc = (ca.locality?.name || ca.origin_address || '').toLowerCase();
+          return caLoc.includes(locLower) || locLower.includes(caLoc);
+        })) {
           localityMatched = true;
         }
       }
@@ -1007,34 +1188,42 @@ export const getAllListings = async (query = {}) => {
     let isWithinPerimeter = true;
 
     if (custLat != null && custLng != null) {
-      const provLat = sa?.centerLatitude != null ? Number(sa.centerLatitude) : null;
-      const provLng = sa?.centerLongitude != null ? Number(sa.centerLongitude) : null;
-      const allowedRadius = sa?.radiusKm != null ? Number(sa.radiusKm) : 25;
+      const provLat = sa?.centerLatitude != null ? Number(sa.centerLatitude) : (provider.latitude != null ? Number(provider.latitude) : null);
+      const provLng = sa?.centerLongitude != null ? Number(sa.centerLongitude) : (provider.longitude != null ? Number(provider.longitude) : null);
+      const allowedRadius = sa?.radiusKm != null ? Number(sa.radiusKm) : null;
 
       if (provLat != null && provLng != null) {
         matchedDistanceKm = calculateHaversineDistanceKm(custLat, custLng, provLat, provLng);
       }
 
       // Check child coverage_areas if available
+      let hasRadialArea = false;
+      let minRadialDist = null;
+      let maxAreaRadius = allowedRadius || 30;
+
       if (Array.isArray(r.coverage_areas) && r.coverage_areas.length > 0) {
         for (const ca of r.coverage_areas) {
-          if (ca.origin_latitude != null && ca.origin_longitude != null) {
-            const caDist = calculateHaversineDistanceKm(custLat, custLng, Number(ca.origin_latitude), Number(ca.origin_longitude));
-            if (caDist != null && (matchedDistanceKm == null || caDist < matchedDistanceKm)) {
-              matchedDistanceKm = caDist;
+          if (ca.coverage_method === 'RADIUS') {
+            hasRadialArea = true;
+            const caRad = ca.resolved_radius_km != null ? Number(ca.resolved_radius_km) : 25;
+            if (caRad > maxAreaRadius) maxAreaRadius = caRad;
+            if (ca.origin_latitude != null && ca.origin_longitude != null) {
+              const caDist = calculateHaversineDistanceKm(custLat, custLng, Number(ca.origin_latitude), Number(ca.origin_longitude));
+              if (caDist != null && (minRadialDist == null || caDist < minRadialDist)) {
+                minRadialDist = caDist;
+              }
             }
           }
         }
       }
 
-      // Proximity perimeter boundary check
-      const effectiveMaxRadius = searchRadius != null ? searchRadius : (allowedRadius || 30);
-      if (matchedDistanceKm != null) {
-        if (matchedDistanceKm > effectiveMaxRadius) {
-          isWithinPerimeter = false;
-        }
-      } else {
-        // If customer provided GPS coordinates, services with no coordinates cannot satisfy a radial proximity search
+      if (minRadialDist != null) {
+        matchedDistanceKm = minRadialDist;
+      }
+
+      // Perimeter check: only exclude if radius search was requested or service is radial
+      const effectiveMaxRadius = searchRadius != null ? searchRadius : maxAreaRadius;
+      if (hasRadialArea && matchedDistanceKm != null && matchedDistanceKm > effectiveMaxRadius) {
         isWithinPerimeter = false;
       }
     }
@@ -1709,6 +1898,329 @@ export const adminToggleListingStatus = async (id, isAvailable, actorId) => {
     updatedAt: new Date(),
   });
   return await getListingById(id);
+};
+
+/**
+ * Resolves active coverage areas for a service listing with ownership/admin check.
+ */
+export const getListingCoverageAreas = async (listingId, user) => {
+  const listing = await ServiceListing.findOne({
+    where: { id: listingId, is_deleted: false },
+    include: [{ model: ServiceProviderProfile, as: 'provider' }],
+  });
+  if (!listing) {
+    const err = new Error('Service listing not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const actorId = user?.id || user?.userId;
+  const userRole = user?.userRole || user?.role;
+  const isAdmin = userRole === 'super_admin' || userRole === 'admin';
+
+  if (!isAdmin && listing.moderation_status !== 'approved') {
+    if (!listing.provider || (listing.provider.user_id !== actorId && listing.provider_id !== user?.providerProfileId)) {
+      const err = new Error('Access denied. You can only view coverage for your own listings.');
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+
+  return await ServiceCoverageArea.findAll({
+    where: { service_id: listingId, is_active: true, is_deleted: false },
+    include: [
+      { model: ServiceRadiusOption, as: 'radius_option' },
+      {
+        model: City,
+        as: 'city',
+        include: [
+          { model: State, as: 'state', attributes: ['id', 'name', 'code'] },
+          { model: District, as: 'district', attributes: ['id', 'district_name_english', 'code'] },
+        ],
+      },
+      { model: Locality, as: 'locality' },
+      { model: Pincode, as: 'pincode' },
+      { model: SocietyProfile, as: 'society' },
+    ],
+    order: [['display_order', 'ASC'], ['id', 'ASC']],
+  });
+};
+
+/**
+ * Validates hierarchical parent-child relationships for coverage areas.
+ */
+export const validateCoverageHierarchy = async (areaData) => {
+  const { city_id, locality_id, pincode_id, society_id, radius_option_id } = areaData;
+
+  let validatedCity = null;
+  let validatedLocality = null;
+  let validatedPincode = null;
+
+  if (city_id) {
+    validatedCity = await City.findOne({ where: { id: city_id, is_deleted: false } });
+    if (!validatedCity) {
+      const err = new Error(`City #${city_id} does not exist or is inactive.`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  if (locality_id) {
+    validatedLocality = await Locality.findOne({ where: { id: locality_id, is_deleted: false } });
+    if (!validatedLocality) {
+      const err = new Error(`Locality #${locality_id} does not exist or is inactive.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (city_id && Number(validatedLocality.city_id) !== Number(city_id)) {
+      const err = new Error(`Locality #${locality_id} does not belong to City #${city_id}.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!city_id) {
+      areaData.city_id = validatedLocality.city_id;
+    }
+  }
+
+  if (pincode_id) {
+    validatedPincode = await Pincode.findOne({ where: { id: pincode_id, is_deleted: false } });
+    if (!validatedPincode) {
+      const err = new Error(`Pincode #${pincode_id} does not exist or is inactive.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (city_id && validatedPincode.city_id && Number(validatedPincode.city_id) !== Number(city_id)) {
+      const err = new Error(`Pincode #${pincode_id} does not belong to City #${city_id}.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!city_id && validatedPincode.city_id) {
+      areaData.city_id = validatedPincode.city_id;
+    }
+  }
+
+  if (society_id) {
+    const soc = await SocietyProfile.findOne({ where: { id: society_id, is_deleted: false } });
+    if (!soc) {
+      const err = new Error(`Society #${society_id} does not exist.`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  if (radius_option_id) {
+    const ro = await ServiceRadiusOption.findOne({ where: { id: radius_option_id, is_deleted: false } });
+    if (!ro) {
+      const err = new Error(`Radius option #${radius_option_id} does not exist.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    areaData.resolved_radius_km = Number(ro.radius_km);
+  }
+
+  return true;
+};
+
+/**
+ * Adds a new coverage area to a service listing.
+ */
+export const addListingCoverageArea = async (listingId, areaData, user) => {
+  const actorId = user?.id || user?.userId;
+  const userRole = user?.userRole || user?.role;
+  const isAdmin = userRole === 'super_admin' || userRole === 'admin';
+
+  const listing = await ServiceListing.findOne({
+    where: { id: listingId, is_deleted: false },
+    include: [{ model: ServiceProviderProfile, as: 'provider' }],
+  });
+  if (!listing) {
+    const err = new Error('Service listing not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!isAdmin) {
+    const profile = await ServiceProviderProfile.findOne({
+      where: { user_id: actorId, is_deleted: false },
+    });
+    if (!profile || listing.provider_id !== profile.id) {
+      const err = new Error('Access denied. You can only manage coverage for your own listings.');
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+
+  await validateCoverageHierarchy(areaData);
+
+  // Prevent duplicate coverage areas for the same listing
+  const existingArea = await ServiceCoverageArea.findOne({
+    where: {
+      service_id: listingId,
+      coverage_method: areaData.coverage_method || 'RADIUS',
+      city_id: areaData.city_id || null,
+      locality_id: areaData.locality_id || null,
+      pincode_id: areaData.pincode_id || null,
+      society_id: areaData.society_id || null,
+      is_deleted: false,
+    },
+  });
+  if (existingArea) {
+    const err = new Error('This coverage area already exists for this service listing.');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const newArea = await ServiceCoverageArea.create({
+    service_id: listingId,
+    coverage_scope: areaData.coverage_scope || listing.coverage_scope || 'PUBLIC',
+    coverage_method: areaData.coverage_method || 'RADIUS',
+    city_id: areaData.city_id || null,
+    locality_id: areaData.locality_id || null,
+    pincode_id: areaData.pincode_id || null,
+    society_id: areaData.society_id || null,
+    origin_latitude: areaData.origin_latitude != null ? areaData.origin_latitude : null,
+    origin_longitude: areaData.origin_longitude != null ? areaData.origin_longitude : null,
+    origin_address: areaData.origin_address || null,
+    radius_option_id: areaData.radius_option_id || null,
+    resolved_radius_km: areaData.resolved_radius_km || null,
+    is_active: areaData.is_active !== false,
+    display_order: areaData.display_order || 0,
+    created_by: actorId,
+  });
+
+  await invalidateListingCoverageCache(listingId);
+
+  return await ServiceCoverageArea.findByPk(newArea.id, {
+    include: [
+      { model: ServiceRadiusOption, as: 'radius_option' },
+      { model: City, as: 'city' },
+      { model: Locality, as: 'locality' },
+      { model: Pincode, as: 'pincode' },
+      { model: SocietyProfile, as: 'society' },
+    ],
+  });
+};
+
+/**
+ * Updates an existing coverage area for a service listing.
+ */
+export const updateListingCoverageArea = async (listingId, areaId, updateData, user) => {
+  const actorId = user?.id || user?.userId;
+  const userRole = user?.userRole || user?.role;
+  const isAdmin = userRole === 'super_admin' || userRole === 'admin';
+
+  const listing = await ServiceListing.findOne({
+    where: { id: listingId, is_deleted: false },
+    include: [{ model: ServiceProviderProfile, as: 'provider' }],
+  });
+  if (!listing) {
+    const err = new Error('Service listing not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!isAdmin) {
+    const profile = await ServiceProviderProfile.findOne({
+      where: { user_id: actorId, is_deleted: false },
+    });
+    if (!profile || listing.provider_id !== profile.id) {
+      const err = new Error('Access denied. You can only manage coverage for your own listings.');
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+
+  const area = await ServiceCoverageArea.findOne({
+    where: { id: areaId, service_id: listingId, is_deleted: false },
+  });
+  if (!area) {
+    const err = new Error('Coverage area record not found for this listing.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const merged = { ...area.toJSON(), ...updateData };
+  await validateCoverageHierarchy(merged);
+
+  await area.update({
+    coverage_scope: updateData.coverage_scope !== undefined ? updateData.coverage_scope : area.coverage_scope,
+    coverage_method: updateData.coverage_method !== undefined ? updateData.coverage_method : area.coverage_method,
+    city_id: updateData.city_id !== undefined ? updateData.city_id : area.city_id,
+    locality_id: updateData.locality_id !== undefined ? updateData.locality_id : area.locality_id,
+    pincode_id: updateData.pincode_id !== undefined ? updateData.pincode_id : area.pincode_id,
+    society_id: updateData.society_id !== undefined ? updateData.society_id : area.society_id,
+    origin_latitude: updateData.origin_latitude !== undefined ? updateData.origin_latitude : area.origin_latitude,
+    origin_longitude: updateData.origin_longitude !== undefined ? updateData.origin_longitude : area.origin_longitude,
+    origin_address: updateData.origin_address !== undefined ? updateData.origin_address : area.origin_address,
+    radius_option_id: updateData.radius_option_id !== undefined ? updateData.radius_option_id : area.radius_option_id,
+    resolved_radius_km: merged.resolved_radius_km !== undefined ? merged.resolved_radius_km : area.resolved_radius_km,
+    is_active: updateData.is_active !== undefined ? updateData.is_active : area.is_active,
+    display_order: updateData.display_order !== undefined ? updateData.display_order : area.display_order,
+    updated_by: actorId,
+    updatedAt: new Date(),
+  });
+
+  await invalidateListingCoverageCache(listingId);
+
+  return await ServiceCoverageArea.findByPk(area.id, {
+    include: [
+      { model: ServiceRadiusOption, as: 'radius_option' },
+      { model: City, as: 'city' },
+      { model: Locality, as: 'locality' },
+      { model: Pincode, as: 'pincode' },
+      { model: SocietyProfile, as: 'society' },
+    ],
+  });
+};
+
+/**
+ * Soft-deletes a coverage area from a service listing.
+ */
+export const deleteListingCoverageArea = async (listingId, areaId, user) => {
+  const actorId = user?.id || user?.userId;
+  const userRole = user?.userRole || user?.role;
+  const isAdmin = userRole === 'super_admin' || userRole === 'admin';
+
+  const listing = await ServiceListing.findOne({
+    where: { id: listingId, is_deleted: false },
+    include: [{ model: ServiceProviderProfile, as: 'provider' }],
+  });
+  if (!listing) {
+    const err = new Error('Service listing not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!isAdmin) {
+    const profile = await ServiceProviderProfile.findOne({
+      where: { user_id: actorId, is_deleted: false },
+    });
+    if (!profile || listing.provider_id !== profile.id) {
+      const err = new Error('Access denied. You can only manage coverage for your own listings.');
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+
+  const area = await ServiceCoverageArea.findOne({
+    where: { id: areaId, service_id: listingId, is_deleted: false },
+  });
+  if (!area) {
+    const err = new Error('Coverage area record not found for this listing.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  await area.update({
+    is_deleted: true,
+    is_active: false,
+    updated_by: actorId,
+    updatedAt: new Date(),
+  });
+
+  await invalidateListingCoverageCache(listingId);
+
+  return { success: true, message: 'Coverage area deleted successfully.' };
 };
 
 

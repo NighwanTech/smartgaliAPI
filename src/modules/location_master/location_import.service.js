@@ -18,6 +18,7 @@ import { parseLgdCsv, serializeToCsv } from './lgd_csv_parser.service.js';
 import { normalizeDistrictName } from './admin_district.controller.js';
 import { normalizeCityName } from './admin_city.controller.js';
 import { normalizeLocalityName } from './admin_locality.controller.js';
+import { invalidateLocationCache } from './location_cache.service.js';
 import logger from '../../utils/logger.js';
 
 // In-memory mutex lock for concurrent import prevention
@@ -1444,6 +1445,7 @@ export const confirmAndExecuteImport = async ({ batchId, actorId, options = {} }
       }
 
       await t.commit();
+      await invalidateLocationCache(batch.dataset_type);
     } catch (txErr) {
       await t.rollback();
       await batch.update({

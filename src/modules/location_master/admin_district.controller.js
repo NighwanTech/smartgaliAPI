@@ -12,6 +12,7 @@ import {
 import AuditLog from '../audit_log/audit_log.model.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
+import { invalidateLocationCache } from './location_cache.service.js';
 
 /**
  * Normalizes district name to lowercase snake_case for robust duplicate prevention.
@@ -209,6 +210,7 @@ export const createDistrict = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('DISTRICT');
 
     // Fetch complete district with State relation
     const complete = await District.findByPk(createdDistrict.id, {
@@ -346,6 +348,7 @@ export const updateDistrict = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('DISTRICT');
 
     const complete = await District.findByPk(id, {
       include: [{ model: State, as: 'state', attributes: ['id', 'name', 'code'] }],
@@ -399,6 +402,7 @@ export const toggleDistrictStatus = async (req, res, next) => {
     }
 
     await t.commit();
+    await invalidateLocationCache('DISTRICT');
 
     return successResponse(
       res,

@@ -1,0 +1,1165 @@
+{
+  "timestamp": "2026-11-05T07:02:55.849Z",
+  "mode": "DRY_RUN",
+  "statistics": {
+    "total_inspected": 60,
+    "with_legacy_service_area": 16,
+    "null_or_empty_service_area": 44,
+    "successfully_mapped_cities": 16,
+    "unmapped_cities": 0,
+    "ambiguous_cities": 0,
+    "localities_mapped": 15,
+    "localities_unmapped": 26,
+    "pincodes_mapped": 22,
+    "pincodes_unmapped": 7,
+    "candidate_coverage_records_generated": 505,
+    "duplicate_coverage_skipped": 0,
+    "records_requiring_manual_review": 16
+  },
+  "manual_review_queue": [
+    {
+      "provider_id": 2,
+      "user_id": 1,
+      "business_name": "Sharma Electrical Solutions",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 40,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 14,
+      "user_id": 391,
+      "business_name": "pawan kumar",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road",
+        "Nearby Neighborhood"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 270,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped locality 'Nearby Neighborhood' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 17,
+      "user_id": 8940,
+      "business_name": "TestProvider1_1792052031054",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800016",
+          "pincode_id": 1,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 65,
+      "user_id": 9013,
+      "business_name": "VerifiedElectrician_1792054867309",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 66,
+      "user_id": 9014,
+      "business_name": "UnverifiedElectrician_1792054867309",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 92,
+      "user_id": 392,
+      "business_name": "Store Owner",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 170,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 97,
+      "user_id": 9089,
+      "business_name": "TestProvider1_1792216990853",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800016",
+          "pincode_id": 1,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 6,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 98,
+      "user_id": 9090,
+      "business_name": "TestProvider2_1792216990853",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 5,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 117,
+      "user_id": 2,
+      "business_name": "Admin User 2",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 168,
+      "user_id": 30,
+      "business_name": "gajendra gupta ",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 171,
+      "user_id": 9222,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 173,
+      "user_id": 9224,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 175,
+      "user_id": 9226,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 177,
+      "user_id": 9228,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 179,
+      "user_id": 9230,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 4,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 180,
+      "user_id": 9231,
+      "business_name": "Gaya Exclusive Electricians",
+      "legacy_city": "Gaya",
+      "resolved_city_id": 15,
+      "resolved_district_id": 21,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [],
+      "localities_unresolved": [
+        "Civil Lines"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Civil Lines' in city Gaya"
+      ]
+    }
+  ],
+  "migration_logs": [
+    {
+      "provider_id": 2,
+      "user_id": 1,
+      "business_name": "Sharma Electrical Solutions",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 40,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 14,
+      "user_id": 391,
+      "business_name": "pawan kumar",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road",
+        "Nearby Neighborhood"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 270,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped locality 'Nearby Neighborhood' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 17,
+      "user_id": 8940,
+      "business_name": "TestProvider1_1792052031054",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800016",
+          "pincode_id": 1,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 65,
+      "user_id": 9013,
+      "business_name": "VerifiedElectrician_1792054867309",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 66,
+      "user_id": 9014,
+      "business_name": "UnverifiedElectrician_1792054867309",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 92,
+      "user_id": 392,
+      "business_name": "Store Owner",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 170,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 97,
+      "user_id": 9089,
+      "business_name": "TestProvider1_1792216990853",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800016",
+          "pincode_id": 1,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 6,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 98,
+      "user_id": 9090,
+      "business_name": "TestProvider2_1792216990853",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 5,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 117,
+      "user_id": 2,
+      "business_name": "Admin User 2",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 168,
+      "user_id": 30,
+      "business_name": "gajendra gupta ",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Boring Road",
+        "Bailey Road"
+      ],
+      "pincodes_resolved": [
+        {
+          "raw_pincode": "800020",
+          "pincode_id": 2,
+          "city_id": 1
+        },
+        {
+          "raw_pincode": "800001",
+          "pincode_id": 3,
+          "city_id": 1
+        }
+      ],
+      "pincodes_unresolved": [
+        "800014"
+      ],
+      "coverage_candidates_count": 0,
+      "notes": [
+        "Unmapped locality 'Boring Road' in city Patna",
+        "Unmapped locality 'Bailey Road' in city Patna",
+        "Unmapped pincode '800014'"
+      ]
+    },
+    {
+      "provider_id": 171,
+      "user_id": 9222,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 173,
+      "user_id": 9224,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 175,
+      "user_id": 9226,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 177,
+      "user_id": 9228,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 179,
+      "user_id": 9230,
+      "business_name": "Patna Super Clean Services",
+      "legacy_city": "Patna",
+      "resolved_city_id": 1,
+      "resolved_district_id": 41,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [
+        {
+          "raw_name": "Kankarbagh",
+          "locality_id": 2,
+          "name": "Kankarbagh"
+        }
+      ],
+      "localities_unresolved": [
+        "Rajendra Nagar"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 4,
+      "notes": [
+        "Unmapped locality 'Rajendra Nagar' in city Patna"
+      ]
+    },
+    {
+      "provider_id": 180,
+      "user_id": 9231,
+      "business_name": "Gaya Exclusive Electricians",
+      "legacy_city": "Gaya",
+      "resolved_city_id": 15,
+      "resolved_district_id": 21,
+      "resolved_state_id": 1,
+      "status": "PARTIAL_MATCH",
+      "localities_resolved": [],
+      "localities_unresolved": [
+        "Civil Lines"
+      ],
+      "pincodes_resolved": [],
+      "pincodes_unresolved": [],
+      "coverage_candidates_count": 2,
+      "notes": [
+        "Unmapped locality 'Civil Lines' in city Gaya"
+      ]
+    }
+  ]
+}
