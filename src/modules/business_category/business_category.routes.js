@@ -20,6 +20,7 @@ router.put('/synonyms/:synonymId', authenticate, requireGlobalAdmin, businessCat
 router.delete('/synonyms/:synonymId', authenticate, requireGlobalAdmin, businessCategoryController.deleteSearchSynonym);
 router.get('/search-analytics', authenticate, requireGlobalAdmin, businessCategoryController.getSearchAnalytics);
 router.get('/:id/specifications', businessCategoryController.getCategorySpecifications);
+router.get('/:id/kyc-requirements', optionalAuthenticate, businessCategoryController.getCategoryKycRequirements);
 router.get('/', businessCategoryController.getAllCategories);
 router.get('/:id', businessCategoryController.getCategoryById);
 

@@ -27,83 +27,60 @@ router.use(authenticate);
 /**
  * 3. Product media upload & cleanup
  */
+const cleanupUploadedMediaFiles = (req) => {
+  if (req.file?.path) {
+    fs.unlink(req.file.path, () => {});
+  }
+  if (Array.isArray(req.files)) {
+    req.files.forEach((f) => {
+      if (f.path) fs.unlink(f.path, () => {});
+    });
+  }
+};
+
+/**
+ * Verifies business ownership before parsing multipart media when businessId is
+ * supplied in query params, otherwise parses multipart fields first and cleans up
+ * any uploaded files if ownership verification fails.
+ */
+const withBusinessOwnershipUpload = (createUploadMiddleware) => (req, res, next) => {
+  const upload = createUploadMiddleware();
+  if (req.query?.businessId || req.query?.business_id) {
+    return requireBusinessOwnership(req, res, (authErr) => {
+      if (authErr) return next(authErr);
+      upload(req, res, next);
+    });
+  }
+  return upload(req, res, (err) => {
+    if (err) return next(err);
+    return requireBusinessOwnership(req, res, (authErr) => {
+      if (authErr) {
+        cleanupUploadedMediaFiles(req);
+        return next(authErr);
+      }
+      return next();
+    });
+  });
+};
+
 // Single primary image upload
 router.post(
   '/upload-image',
-  (req, res, next) => {
-    const upload = uploadImage('business_products').single('image');
-    if (req.query?.businessId || req.query?.business_id) {
-      return requireBusinessOwnership(req, res, () => {
-        upload(req, res, next);
-      });
-    }
-    upload(req, res, (err) => {
-      if (err) return next(err);
-      return requireBusinessOwnership(req, res, (authErr) => {
-        if (authErr) {
-          if (req.file?.path) {
-            fs.unlink(req.file.path, () => {});
-          }
-          return next(authErr);
-        }
-        next();
-      });
-    });
-  },
+  withBusinessOwnershipUpload(() => uploadImage('business_products').single('image')),
   productController.uploadProductImage
 );
 
 // Batch gallery sub-images upload (up to 10 images)
 router.post(
   '/upload-images',
-  (req, res, next) => {
-    const upload = uploadImage('business_products').array('images', 10);
-    if (req.query?.businessId || req.query?.business_id) {
-      return requireBusinessOwnership(req, res, () => {
-        upload(req, res, next);
-      });
-    }
-    upload(req, res, (err) => {
-      if (err) return next(err);
-      return requireBusinessOwnership(req, res, (authErr) => {
-        if (authErr) {
-          if (Array.isArray(req.files)) {
-            req.files.forEach((f) => {
-              if (f.path) fs.unlink(f.path, () => {});
-            });
-          }
-          return next(authErr);
-        }
-        next();
-      });
-    });
-  },
+  withBusinessOwnershipUpload(() => uploadImage('business_products').array('images', 10)),
   productController.uploadProductImages
 );
 
 // Promotional / demo video upload (up to 50MB, mp4/webm/mov)
 router.post(
   '/upload-video',
-  (req, res, next) => {
-    const upload = uploadProductVideo('business_products').single('video');
-    if (req.query?.businessId || req.query?.business_id) {
-      return requireBusinessOwnership(req, res, () => {
-        upload(req, res, next);
-      });
-    }
-    upload(req, res, (err) => {
-      if (err) return next(err);
-      return requireBusinessOwnership(req, res, (authErr) => {
-        if (authErr) {
-          if (req.file?.path) {
-            fs.unlink(req.file.path, () => {});
-          }
-          return next(authErr);
-        }
-        next();
-      });
-    });
-  },
+  withBusinessOwnershipUpload(() => uploadProductVideo('business_products').single('video')),
   productController.uploadProductVideo
 );
 

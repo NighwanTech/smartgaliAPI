@@ -35,6 +35,9 @@ export const createOrderSchema = Joi.object({
   customer_email: Joi.string().trim().email().allow('', null).optional(),
   customer_address: Joi.string().trim().max(1000).allow('', null).optional(),
   special_instructions: Joi.string().trim().max(1000).allow('', null).optional(),
+  razorpay_order_id: Joi.string().trim().max(100).allow('', null).optional(),
+  razorpay_payment_id: Joi.string().trim().max(100).allow('', null).optional(),
+  razorpay_signature: Joi.string().trim().max(255).allow('', null).optional(),
   ...locationAndPromoFields,
   items: Joi.array().items(orderItemSchema).min(1).max(50).required(),
 });
@@ -59,4 +62,28 @@ export const updateOrderStatusSchema = Joi.object({
 export const cancelOrderSchema = Joi.object({
   reason: Joi.string().trim().max(500).allow('', null).optional(),
 });
+
+export const createRazorpayOrderSchema = Joi.object({
+  amount: Joi.number().positive().optional(),
+  business_id: Joi.number().integer().positive().optional(),
+  delivery_type: Joi.string().valid('home_delivery', 'store_pickup').optional(),
+  promo_code: Joi.string().trim().max(50).allow('', null).optional(),
+  items: Joi.array().items(orderItemSchema).min(1).max(50).optional(),
+  currency: Joi.string().trim().default('INR').optional(),
+  receipt: Joi.string().trim().max(50).allow('', null).optional(),
+  notes: Joi.object().optional(),
+}).or('amount', 'items');
+
+export const verifyRazorpayPaymentSchema = Joi.object({
+  order_id: Joi.alternatives().try(Joi.string().trim(), Joi.number()).optional(),
+  razorpay_order_id: Joi.string().trim().required(),
+  razorpay_payment_id: Joi.string().trim().required(),
+  razorpay_signature: Joi.string().trim().allow('', null).optional(),
+});
+
+export const refundOrderSchema = Joi.object({
+  amount: Joi.number().positive().optional(),
+  reason: Joi.string().trim().max(500).allow('', null).optional(),
+});
+
 

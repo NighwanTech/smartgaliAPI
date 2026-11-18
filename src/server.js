@@ -20,6 +20,7 @@ import './modules/user_devices/user_device.model.js';
 import './modules/complaint_master/index.js';
 import './modules/business_category/business_search_synonym.model.js';
 import './modules/business_category/business_search_log.model.js';
+import { ensureBusinessKycReady } from './modules/business_kyc/business_kyc.service.js';
 let httpServer;
 let io;
 let shuttingDown = false;
@@ -28,6 +29,7 @@ const startServer = async () => {
   try {
     // 1. Connect to Database
     await connectDB();
+    await ensureBusinessKycReady();
     await createRedisClients();
 
     // 2. Wrap Express app in a raw http.Server so Socket.IO can share the port

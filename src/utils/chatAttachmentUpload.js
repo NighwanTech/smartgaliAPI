@@ -31,6 +31,7 @@ const TYPES = Object.freeze({
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { ext: '.docx', kind: 'document', max: 25 },
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { ext: '.xlsx', kind: 'document', max: 25 },
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': { ext: '.pptx', kind: 'document', max: 25 },
+  'text/plain': { ext: '.txt', kind: 'document', max: 25 },
 });
 
 const startsWith = (buffer, bytes) => bytes.every((byte, index) => buffer[index] === byte);
@@ -71,6 +72,7 @@ export const contentMatchesMime = (buffer, mime) => {
   if (['application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint'].includes(mime)) {
     return startsWith(buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
   }
+  if (mime === 'text/plain') return true;
   return false;
 };
 

@@ -35,7 +35,7 @@ export const createProduct = async (req, res) => {
     return successResponse(res, 201, 'Product created successfully.', product);
   } catch (err) {
     console.error('Error creating product:', err);
-    return errorResponse(res, 400, err.message || 'Error creating product.');
+    return errorResponse(res, err.statusCode || 400, err.message || 'Error creating product.');
   }
 };
 

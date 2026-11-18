@@ -6,10 +6,26 @@ import env from '../config/env.js';
 
 const IMAGE_EXTENSIONS = Object.freeze({
   'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/pjpeg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
 });
+
+const ALLOWED_IMAGE_EXT_SET = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+
+const resolveImageExtension = (file) => {
+  const mime = (file?.mimetype || '').toLowerCase().trim();
+  if (IMAGE_EXTENSIONS[mime]) return IMAGE_EXTENSIONS[mime];
+  if (!mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream') {
+    const ext = path.extname(file?.originalname || '').toLowerCase();
+    if (ALLOWED_IMAGE_EXT_SET.has(ext)) {
+      return ext === '.jpeg' ? '.jpg' : ext;
+    }
+  }
+  return null;
+};
 
 const COMMUNITY_DOCUMENT_EXTENSIONS = Object.freeze({
   'application/pdf': '.pdf',
@@ -27,7 +43,8 @@ const COMMUNITY_MEDIA_EXTENSIONS = Object.freeze({
   'video/webm': '.webm',
 });
 
-export const isAllowedImageMime = (mimeType) => Boolean(IMAGE_EXTENSIONS[mimeType]);
+export const isAllowedImageMime = (mimeType) =>
+  Boolean(IMAGE_EXTENSIONS[String(mimeType || '').toLowerCase().trim()]);
 
 export const safeFolder = (folderName) => {
   if (!/^[a-zA-Z0-9_-]+$/.test(folderName)) {
@@ -59,7 +76,7 @@ export const uploadImage = (folderName = 'general') => {
       cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-      const extension = IMAGE_EXTENSIONS[file.mimetype];
+      const extension = resolveImageExtension(file);
       if (!extension) {
         const error = new Error('Only JPEG, PNG, WebP, and GIF images are allowed.');
         error.code = 'INVALID_IMAGE_TYPE';
@@ -70,7 +87,7 @@ export const uploadImage = (folderName = 'general') => {
   });
 
   const fileFilter = (req, file, cb) => {
-    if (isAllowedImageMime(file.mimetype)) {
+    if (resolveImageExtension(file)) {
       cb(null, true);
     } else {
       const error = new Error('Only JPEG, PNG, WebP, and GIF images are allowed.');

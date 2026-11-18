@@ -11,6 +11,12 @@ import {
 import { chatAttachmentUpload, validateChatAttachment } from '../../utils/chatAttachmentUpload.js';
 
 const router = express.Router();
+
+// ── Public Attachment Preview & Download ──────────────────────────────────────
+// Permissive CORS & inline/attachment streaming for cross-platform app previews
+router.get('/attachment/:filename/preview', chatController.previewAttachment);
+router.get('/attachment/:filename/download', chatController.downloadAttachment);
+
 router.use(authenticate);
 
 /**

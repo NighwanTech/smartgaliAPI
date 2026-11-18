@@ -8,12 +8,21 @@ import {
   createOrderSchema,
   updateOrderStatusSchema,
   cancelOrderSchema,
+  createRazorpayOrderSchema,
+  verifyRazorpayPaymentSchema,
+  refundOrderSchema,
 } from './business_order.validation.js';
 
 const router = express.Router();
 
 // Cart quote preview (works for signed-in users & storefront previews)
 router.post('/quote', optionalAuthenticate, validateBody(quoteOrderSchema), orderController.quoteOrder);
+
+// Razorpay Payment Gateway routes
+router.get('/razorpay/config', optionalAuthenticate, orderController.getRazorpayConfig);
+router.post('/razorpay/create-order', optionalAuthenticate, validateBody(createRazorpayOrderSchema), orderController.createRazorpayOrder);
+router.post('/razorpay/verify-payment', optionalAuthenticate, validateBody(verifyRazorpayPaymentSchema), orderController.verifyRazorpayPayment);
+router.post('/razorpay/webhook', orderController.handleRazorpayWebhook);
 
 // All persistent order routes require authentication
 router.use(authenticate);
@@ -25,11 +34,12 @@ router.get('/my', orderController.getMyOrders);
 // Business Owner order dashboard endpoint
 router.get('/business/:businessId', requireBusinessOwnership, orderController.getBusinessOrders);
 
-// Single order detail & lifecycle updates
+// Single order detail, lifecycle updates & refunds
 router.get('/:id', orderController.getOrderById);
 router.post('/:id/cancel', validateBody(cancelOrderSchema), orderController.cancelOrderByCustomer);
 router.patch('/:id/status', validateBody(updateOrderStatusSchema), orderController.updateOrderStatus);
 router.post('/:id/status', validateBody(updateOrderStatusSchema), orderController.updateOrderStatus);
+router.post('/:id/refund', validateBody(refundOrderSchema), orderController.refundOrderPayment);
 
 export default router;
 

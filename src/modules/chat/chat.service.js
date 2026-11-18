@@ -276,8 +276,13 @@ export const saveUploadedAttachment = (file) => {
           : 'document'
   );
 
-  // Build absolute URL so Flutter / any client can load the file directly
-  const media_url = `${env.publicMediaOrigin}/uploads/${file.filename}`;
+  // If publicMediaOrigin is configured with a real public domain (not a local LAN IP or loopback),
+  // use it. Otherwise, return relative path /uploads/... so clients resolve against their active host.
+  const isPrivateOrigin = !env.publicMediaOrigin ||
+    /^(https?:\/\/)?(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01]))/i.test(env.publicMediaOrigin);
+  const media_url = isPrivateOrigin
+    ? `/uploads/${file.filename}`
+    : `${env.publicMediaOrigin}/uploads/${file.filename}`;
 
   const media_metadata = {
     file_name:     file.originalname,

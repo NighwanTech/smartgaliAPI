@@ -8,6 +8,8 @@ import User from '../user/user.model.js';
 import * as productService from '../business_product/business_product.service.js';
 import * as businessOfferService from '../business_offer/business_offer.service.js';
 import * as businessCoverageService from '../business_profile/business_coverage.service.js';
+import * as razorpayService from './razorpay.service.js';
+import { getIO } from '../../socket.js';
 
 const ORDER_STATUS_LABELS = {
   new: 'Order Placed by Customer',
@@ -917,9 +919,11 @@ export const createOrder = async (payload, currentUser) => {
     const initialTimeline = [
       buildTimelineEntry(
         'new',
-        `${evaluated.pm.display} • ${deliveryType === 'store_pickup' ? 'Store Pickup' : 'Home Delivery'}`
+        `${evaluated.pm.display} • ${deliveryType === 'store_pickup' ? 'Store Pickup' : 'Home Delivery'}${payload.razorpay_payment_id ? ` • Ref: ${payload.razorpay_payment_id}` : ''}`
       ),
     ];
+
+    const paymentStatus = evaluated.pm.db === 'cod' ? 'pending' : 'paid';
 
     const order = await BusinessOrder.create(
       {
@@ -935,7 +939,10 @@ export const createOrder = async (payload, currentUser) => {
             : customerAddress.trim(),
         delivery_type: deliveryType,
         payment_mode: evaluated.pm.db,
-        payment_status: evaluated.pm.db === 'cod' ? 'pending' : 'paid',
+        payment_status: paymentStatus,
+        razorpay_order_id: payload.razorpay_order_id || null,
+        razorpay_payment_id: payload.razorpay_payment_id || null,
+        razorpay_signature: payload.razorpay_signature || null,
         status: 'new',
         subtotal: evaluated.subtotal,
         delivery_fee: evaluated.delivery_fee,
@@ -978,7 +985,27 @@ export const createOrder = async (payload, currentUser) => {
       where: { id: order.id },
       include: ORDER_INCLUDE,
     });
-    return formatOrder(created);
+    const formatted = formatOrder(created);
+
+    // Enterprise Real-Time Socket Notification
+    try {
+      const io = getIO();
+      if (io) {
+        if (order.customer_user_id) {
+          io.to(`user:${order.customer_user_id}`).emit('order:created', formatted);
+          io.to(`user_${order.customer_user_id}`).emit('order:created', formatted);
+        }
+        if (created?.business?.userId) {
+          io.to(`user:${created.business.userId}`).emit('order:new_order', formatted);
+          io.to(`user_${created.business.userId}`).emit('order:new_order', formatted);
+        }
+        io.to(`business_${order.business_id}`).emit('order:new_order', formatted);
+      }
+    } catch (e) {
+      console.warn('[Socket Order Error]', e.message);
+    }
+
+    return formatted;
   } catch (err) {
     await transaction.rollback();
     if (String(err.message || '').startsWith('INSUFFICIENT_STOCK:')) {
@@ -1197,6 +1224,28 @@ export const updateOrderStatus = async (idOrNumber, nextStatus, options = {}) =>
       }
       if (String(order.payment_status).toLowerCase() === 'paid') {
         updates.payment_status = 'refunded';
+        if (order.razorpay_payment_id) {
+          try {
+            const refundRes = await razorpayService.refundRazorpayPayment({
+              paymentId: order.razorpay_payment_id,
+              amount: order.total_amount,
+              notes: {
+                order_id: String(order.id),
+                order_number: order.order_number,
+                reason: reason || note || (isCustomerCancel ? 'Customer cancelled order' : 'Store rejected order'),
+              },
+            });
+            currentTimeline.push(
+              buildTimelineEntry(
+                'refunded',
+                `Auto-refund of ₹${order.total_amount} initiated via Razorpay (${refundRes.id})`,
+                'Refund Initiated'
+              )
+            );
+          } catch (refundErr) {
+            console.warn(`[Order Auto-Refund Notice] ${refundErr.message}`);
+          }
+        }
       }
     } else if (nextStatus === 'completed') {
       updates.payment_status = 'paid';
@@ -1204,16 +1253,263 @@ export const updateOrderStatus = async (idOrNumber, nextStatus, options = {}) =>
       updates.return_reason = reason || note || 'Returned by customer';
     } else if (nextStatus === 'refunded') {
       updates.payment_status = 'refunded';
+      if (order.razorpay_payment_id) {
+        try {
+          const refundRes = await razorpayService.refundRazorpayPayment({
+            paymentId: order.razorpay_payment_id,
+            amount: order.total_amount,
+            notes: {
+              order_id: String(order.id),
+              order_number: order.order_number,
+              reason: reason || note || 'Refunded by store owner',
+            },
+          });
+          currentTimeline.push(
+            buildTimelineEntry(
+              'refunded',
+              `Auto-refund of ₹${order.total_amount} processed via Razorpay (${refundRes.id})`,
+              'Refund Processed'
+            )
+          );
+        } catch (refundErr) {
+          console.warn(`[Order Auto-Refund Notice] ${refundErr.message}`);
+        }
+      }
     }
 
     await order.update(updates, { transaction });
     await transaction.commit();
 
     const refreshed = await findOrderByIdOrNumber(order.id);
-    return formatOrder(refreshed);
+    const formatted = formatOrder(refreshed);
+
+    // Enterprise Real-Time Socket Notification
+    try {
+      const io = getIO();
+      if (io) {
+        if (refreshed?.customer_user_id) {
+          io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+          io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+        }
+        if (refreshed?.business?.userId) {
+          io.to(`user:${refreshed.business.userId}`).emit('order:status_updated', formatted);
+          io.to(`user_${refreshed.business.userId}`).emit('order:status_updated', formatted);
+        }
+        io.to(`business_${refreshed.business_id}`).emit('order:status_updated', formatted);
+      }
+    } catch (e) {
+      console.warn('[Socket Order Status Error]', e.message);
+    }
+
+    return formatted;
   } catch (err) {
     await transaction.rollback();
     throw err;
   }
 };
+
+export const confirmOrderPayment = async (
+  idOrNumber,
+  { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+) => {
+  const order = await findOrderByIdOrNumber(idOrNumber);
+  if (!order) {
+    const err = new Error('Order not found for payment confirmation.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const updatedTimeline = Array.isArray(order.timeline) ? [...order.timeline] : [];
+  updatedTimeline.push(
+    buildTimelineEntry('paid', `Paid via Razorpay (${razorpay_payment_id})`, 'Payment Confirmed (Paid)')
+  );
+
+  await order.update({
+    payment_status: 'paid',
+    razorpay_order_id: razorpay_order_id || order.razorpay_order_id,
+    razorpay_payment_id: razorpay_payment_id || order.razorpay_payment_id,
+    razorpay_signature: razorpay_signature || order.razorpay_signature,
+    timeline: updatedTimeline,
+    updatedAt: new Date(),
+  });
+
+  const refreshed = await findOrderByIdOrNumber(order.id);
+  return formatOrder(refreshed);
+};
+
+/**
+ * Enterprise Webhook Processor:
+ * Listens to async Razorpay events (payment.captured, order.paid, payment.failed, refund.processed)
+ * Ensures order payment transitions safely even if customer app drops connection.
+ */
+export const handleRazorpayWebhookEvent = async (event) => {
+  if (!event || !event.event) {
+    throw new Error('Invalid Razorpay webhook payload.');
+  }
+
+  const eventName = event.event;
+  console.log(`[Razorpay Webhook] Processing event: ${eventName}`);
+
+  if (eventName === 'payment.captured' || eventName === 'order.paid') {
+    const payment = event.payload?.payment?.entity;
+    const rzpOrderId = payment?.order_id || event.payload?.order?.entity?.id;
+    const rzpPaymentId = payment?.id;
+
+    if (!rzpOrderId && !rzpPaymentId) {
+      return { handled: false, message: 'Missing order_id or payment_id in webhook payload' };
+    }
+
+    const where = {};
+    if (rzpOrderId) {
+      where.razorpay_order_id = rzpOrderId;
+    } else {
+      where.razorpay_payment_id = rzpPaymentId;
+    }
+
+    const order = await BusinessOrder.findOne({ where });
+    if (!order) {
+      console.warn(`[Razorpay Webhook] No matching order found for razorpay_order_id: ${rzpOrderId}`);
+      return { handled: false, message: 'Order not found for razorpay order ID' };
+    }
+
+    if (String(order.payment_status).toLowerCase() !== 'paid') {
+      const currentTimeline = Array.isArray(order.timeline) ? [...order.timeline] : [];
+      currentTimeline.push(
+        buildTimelineEntry('paid', `Payment Captured via Razorpay Webhook (${rzpPaymentId || 'verified'})`, 'Payment Confirmed')
+      );
+
+      await order.update({
+        payment_status: 'paid',
+        razorpay_payment_id: rzpPaymentId || order.razorpay_payment_id,
+        timeline: currentTimeline,
+        updatedAt: new Date(),
+      });
+
+      const refreshed = await findOrderByIdOrNumber(order.id);
+      const formatted = formatOrder(refreshed);
+
+      try {
+        const io = getIO();
+        if (io) {
+          if (refreshed?.customer_user_id) {
+            io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+            io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+          }
+          if (refreshed?.business_id) {
+            io.to(`business_${refreshed.business_id}`).emit('order:status_updated', formatted);
+          }
+        }
+      } catch (_) {}
+
+      return { handled: true, event: eventName, order_id: order.id, status: 'marked_paid' };
+    }
+
+    return { handled: true, event: eventName, order_id: order.id, status: 'already_paid' };
+  }
+
+  if (eventName === 'payment.failed') {
+    const payment = event.payload?.payment?.entity;
+    const rzpOrderId = payment?.order_id;
+    if (rzpOrderId) {
+      const order = await BusinessOrder.findOne({ where: { razorpay_order_id: rzpOrderId } });
+      if (order && String(order.payment_status).toLowerCase() !== 'paid') {
+        const currentTimeline = Array.isArray(order.timeline) ? [...order.timeline] : [];
+        const failureReason = payment?.error_description || payment?.error_reason || 'Payment failed at gateway';
+        currentTimeline.push(
+          buildTimelineEntry('new', `Payment Failed: ${failureReason}`, 'Payment Attempt Failed')
+        );
+        await order.update({
+          timeline: currentTimeline,
+          updatedAt: new Date(),
+        });
+        return { handled: true, event: eventName, order_id: order.id, status: 'recorded_failure' };
+      }
+    }
+  }
+
+  if (eventName === 'refund.processed') {
+    const refund = event.payload?.refund?.entity;
+    const rzpPaymentId = refund?.payment_id;
+    if (rzpPaymentId) {
+      const order = await BusinessOrder.findOne({ where: { razorpay_payment_id: rzpPaymentId } });
+      if (order) {
+        const currentTimeline = Array.isArray(order.timeline) ? [...order.timeline] : [];
+        const refundAmt = refund.amount ? (Number(refund.amount) / 100).toFixed(2) : order.total_amount;
+        currentTimeline.push(
+          buildTimelineEntry('refunded', `Refund of ₹${refundAmt} completed to source (${refund.id})`, 'Refund Completed')
+        );
+        await order.update({
+          payment_status: 'refunded',
+          timeline: currentTimeline,
+          updatedAt: new Date(),
+        });
+        return { handled: true, event: eventName, order_id: order.id, status: 'refund_recorded' };
+      }
+    }
+  }
+
+  return { handled: true, event: eventName, status: 'acknowledged' };
+};
+
+/**
+ * Enterprise Explicit Refund API for store managers & admin:
+ */
+export const refundOrderPayment = async (idOrNumber, { amount, reason, actorId } = {}) => {
+  const order = await findOrderByIdOrNumber(idOrNumber);
+  if (!order) {
+    const err = new Error('Order not found for refund.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!order.razorpay_payment_id) {
+    const err = new Error('Cannot process online refund: Order has no Razorpay payment ID.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const refundAmount = amount ? Number(amount) : Number(order.total_amount);
+  const refundRes = await razorpayService.refundRazorpayPayment({
+    paymentId: order.razorpay_payment_id,
+    amount: refundAmount,
+    notes: {
+      order_id: String(order.id),
+      order_number: order.order_number,
+      reason: reason || 'Manual refund by admin/store',
+    },
+  });
+
+  const currentTimeline = Array.isArray(order.timeline) ? [...order.timeline] : [];
+  currentTimeline.push(
+    buildTimelineEntry(
+      'refunded',
+      `Refund of ₹${refundAmount.toFixed(2)} processed via Razorpay (${refundRes.id})`,
+      'Refund Processed'
+    )
+  );
+
+  await order.update({
+    payment_status: 'refunded',
+    timeline: currentTimeline,
+    updated_by: actorId || null,
+    updatedAt: new Date(),
+  });
+
+  const refreshed = await findOrderByIdOrNumber(order.id);
+  const formatted = formatOrder(refreshed);
+
+  try {
+    const io = getIO();
+    if (io && refreshed?.customer_user_id) {
+      io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+      io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+    }
+  } catch (_) {}
+
+  return {
+    order: formatted,
+    refund: refundRes,
+  };
+};
+
 

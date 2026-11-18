@@ -50,7 +50,7 @@ export const registerDevice = async ({
     return { device: serializeDevice(existing, { includeToken: true }), created: false };
   }
 
-  // If this token was previously on another device for same user, deactivate old row
+  // Deactivate old tokens for same user on other devices
   await UserDevice.update(
     { is_active: false, deactivated_reason: 'token_moved' },
     {
@@ -58,6 +58,18 @@ export const registerDevice = async ({
         user_id: userId,
         push_token: pushToken,
         device_id: { [Op.ne]: deviceId },
+        is_active: true,
+      },
+    },
+  );
+
+  // Deactivate this device/pushToken for any OTHER user (device switched user)
+  await UserDevice.update(
+    { is_active: false, deactivated_reason: 'switched_user' },
+    {
+      where: {
+        user_id: { [Op.ne]: userId },
+        [Op.or]: [{ device_id: deviceId }, { push_token: pushToken }],
         is_active: true,
       },
     },

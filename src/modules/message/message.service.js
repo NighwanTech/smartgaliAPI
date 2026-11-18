@@ -60,8 +60,8 @@ const hydrateMessages = async (messages, requestingUserId) => {
 
   const ids = messages.map((m) => m.id);
 
-  // Bulk-load reactions and deletions to avoid N+1
-  const [reactionsMap, deletionSet, pinRows] = await Promise.all([
+  // Bulk-load reactions, deletions, pins, and receipts to avoid N+1
+  const [reactionsMap, deletionSet, pinRows, receiptRows] = await Promise.all([
     bulkLoadReactions(ids),
     MessageDeletion.findAll({
       where:      { message_id: ids, user_id: requestingUserId },
@@ -71,7 +71,21 @@ const hydrateMessages = async (messages, requestingUserId) => {
       where: { message_id: ids },
       attributes: ['message_id', 'pinned_by', 'created_at'],
     }),
+    MessageReceipt.findAll({
+      where: { message_id: ids },
+      attributes: ['message_id', 'user_id', 'delivered_at', 'read_at'],
+    }),
   ]);
+
+  const receiptsByMessage = new Map();
+  for (const r of receiptRows) {
+    const key = String(r.message_id);
+    if (!receiptsByMessage.has(key)) {
+      receiptsByMessage.set(key, []);
+    }
+    receiptsByMessage.get(key).push(r.toJSON ? r.toJSON() : r);
+  }
+
   const pinsByMessage = new Map(
     pinRows.map((pin) => [String(pin.message_id), pin.toJSON ? pin.toJSON() : pin])
   );
@@ -83,6 +97,25 @@ const hydrateMessages = async (messages, requestingUserId) => {
       plain.reactionsSummary = reactionsMap[String(m.id)] || {};
       plain.is_pinned = pinsByMessage.has(String(m.id));
       plain.pin = pinsByMessage.get(String(m.id)) || null;
+
+      const receipts = receiptsByMessage.get(String(m.id)) || [];
+      if (Number(m.sender_id) === Number(requestingUserId)) {
+        // Sent by requester: check if recipient has read or received
+        const hasRead = receipts.some((r) => r.read_at != null);
+        const hasDelivered = hasRead || receipts.some((r) => r.delivered_at != null);
+        plain.is_read = hasRead;
+        plain.is_delivered = hasDelivered;
+        plain.read_at = receipts.find((r) => r.read_at != null)?.read_at || null;
+        plain.delivered_at = receipts.find((r) => r.delivered_at != null)?.delivered_at || null;
+      } else {
+        // Received by requester: check requester's receipt
+        const myReceipt = receipts.find((r) => Number(r.user_id) === Number(requestingUserId));
+        plain.is_read = !!myReceipt?.read_at;
+        plain.is_delivered = !!myReceipt?.delivered_at;
+        plain.read_at = myReceipt?.read_at || null;
+        plain.delivered_at = myReceipt?.delivered_at || null;
+      }
+
       return plain;
     });
 };
@@ -211,6 +244,50 @@ export const sendMessage = async (messageData) => {
 
   logger.messageSent({ messageId: newMessage.id, chatId: chat_id, senderId: sender_id, messageType: message_type });
 
+  const plainMsg = hydratedMessage.toJSON ? hydratedMessage.toJSON() : hydratedMessage;
+  plainMsg.is_delivered = false;
+  plainMsg.is_read = false;
+
+  // Direct Socket.IO delivery check & real-time broadcast
+  try {
+    const io = getIO();
+    if (io) {
+      const otherParticipants = await ChatParticipant.findAll({
+        where: { chat_id, user_id: { [Op.ne]: sender_id }, is_deleted: false },
+        attributes: ['user_id'],
+      });
+
+      let anyDelivered = false;
+      const now = new Date();
+      for (const p of otherParticipants) {
+        const recipientSockets = await io.in(`user:${p.user_id}`).fetchSockets();
+        if (recipientSockets && recipientSockets.length > 0) {
+          anyDelivered = true;
+          await MessageReceipt.update(
+            { delivered_at: now },
+            { where: { message_id: newMessage.id, user_id: p.user_id, delivered_at: null } }
+          );
+          io.to(`user:${sender_id}`).emit('message:delivered', {
+            messageId: newMessage.id,
+            chatId: chat_id,
+            userId: p.user_id,
+            deliveredAt: now,
+          });
+        }
+      }
+
+      if (anyDelivered) {
+        plainMsg.is_delivered = true;
+        plainMsg.delivered_at = now;
+      }
+
+      // Broadcast to active room members immediately
+      io.to(`chat:${chat_id}`).emit('chat:message', plainMsg);
+    }
+  } catch (socketErr) {
+    logger.warn('MESSAGE', 'direct_socket_broadcast_failed', { chatId: chat_id, error: socketErr.message });
+  }
+
   // ── E. Outbox → BullMQ (non-critical, outside TX) ─────────────────────────
   // HTTP must not wait for Socket.IO. Enqueue only; worker runs processEvent.
   // If enqueue fails, event stays pending for worker recovery sweep.
@@ -231,7 +308,7 @@ export const sendMessage = async (messageData) => {
     logger.error('MESSAGE', 'push_notification_failed', { error: err.message })
   );
 
-  return { message: hydratedMessage, idempotent: false };
+  return { message: plainMsg, idempotent: false };
 };
 
 // Fire-and-forget push notification helper
@@ -373,6 +450,19 @@ export const markAllRead = async ({ chatId, userId }) => {
       }
     );
   });
+
+  try {
+    const io = getIO();
+    if (io) {
+      io.to(`chat:${chatId}`).emit('message:read', {
+        chatId: Number(chatId),
+        userId: Number(userId),
+        readAt: new Date(),
+      });
+    }
+  } catch (err) {
+    logger.warn('MESSAGE', 'mark_all_read_emit_failed', { chatId, error: err.message });
+  }
 
   return { success: true };
 };

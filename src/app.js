@@ -11,7 +11,7 @@ import healthRoutes from './monitoring/health.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { setupSwagger } from './swagger.js';
 import env from './config/env.js';
-import { secureProviderDocuments } from './middleware/secureKycFiles.middleware.js';
+import { secureProviderDocuments, secureBusinessDocuments } from './middleware/secureKycFiles.middleware.js';
 
 // Initialize express app
 const app = express();
@@ -72,7 +72,11 @@ app.options('*', corsMiddleware); // Explicitly handle all preflight OPTIONS req
 // If these parsers run on a multipart body they interfere with multer's
 // stream reader, leaving req.file undefined even when the file was sent.
 const isMultipart = (req) => (req.headers['content-type'] || '').startsWith('multipart/');
-app.use((req, res, next) => isMultipart(req) ? next() : express.json()(req, res, next));
+app.use((req, res, next) => isMultipart(req) ? next() : express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+})(req, res, next));
 app.use((req, res, next) => isMultipart(req) ? next() : express.urlencoded({ extended: true })(req, res, next));
 app.use(morgan(env.isProduction ? 'combined' : 'dev')); // HTTP request logger
 
@@ -117,8 +121,9 @@ app.get('/metrics', async (req, res) => {
 // Setup Swagger UI Documentation
 setupSwagger(app);
 
-// Secure private KYC provider documents: requires authentication & ownership/admin authorization
+// Secure private KYC provider & business documents: requires authentication & ownership/admin authorization
 app.use('/uploads/provider-documents', secureProviderDocuments);
+app.use('/uploads/business-documents', secureBusinessDocuments);
 
 // UPLOADS_PATH must point to persistent storage in production.
 app.use('/uploads', express.static(env.uploadsPath, {
@@ -128,7 +133,9 @@ app.use('/uploads', express.static(env.uploadsPath, {
   maxAge: env.isProduction ? '1d' : 0,
   setHeaders: (res, filePath) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
     res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
   },
 }));

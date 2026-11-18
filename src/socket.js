@@ -11,6 +11,7 @@ import Community from './modules/community/community.model.js';
 import Event from './modules/event/event.model.js';
 import EventParticipant from './modules/event_participant/event_participant.model.js';
 import Message from './modules/message/message.model.js';
+import MessageReceipt from './modules/message_receipt/message_receipt.model.js';
 import { markDelivered, markRead } from './modules/message_receipt/message_receipt.service.js';
 import { getPubClient, getSubClient, getIsRedisAvailable } from './config/redis.js';
 import env from './config/env.js';
@@ -28,7 +29,10 @@ import {
   touchUserPresence,
   handleUserSocketDisconnect,
   PRESENCE_TTL_SECONDS,
+  presenceDeps,
+  presenceRedisKey,
 } from './infrastructure/presence/presence.js';
+import UserProfile from './modules/userProfile/userProfile.model.js';
 
 const PRESENCE_HEARTBEAT_MS = 60_000;
 const userSocketsMap = new Map();
@@ -101,6 +105,42 @@ export const initSocket = (httpServer) => {
       })
       .catch((err) => logger.error('SOCKET', 'presence_online_failed', { userId: uid, error: err.message }));
 
+    // Sweep undelivered receipts for this user (notifies senders with double grey tick)
+    (async () => {
+      try {
+        const pendingReceipts = await MessageReceipt.findAll({
+          where: { user_id: uid, delivered_at: null },
+          limit: 100,
+          include: [{
+            model: Message,
+            as: 'message',
+            attributes: ['id', 'chat_id', 'sender_id'],
+            where: { is_deleted: false },
+          }],
+        });
+        if (pendingReceipts.length > 0) {
+          const now = new Date();
+          const msgIds = pendingReceipts.map((r) => r.message_id);
+          await MessageReceipt.update(
+            { delivered_at: now },
+            { where: { user_id: uid, message_id: msgIds, delivered_at: null } }
+          );
+          for (const r of pendingReceipts) {
+            if (r.message?.sender_id) {
+              io.to(`user:${r.message.sender_id}`).emit('message:delivered', {
+                messageId: r.message_id,
+                chatId: r.message.chat_id,
+                userId: uid,
+                deliveredAt: now,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn('SOCKET', 'undelivered_sweep_failed', { userId: uid, error: err.message });
+      }
+    })();
+
     const heartbeat = setInterval(() => {
       touchUserPresence(uid).catch(() => {});
     }, PRESENCE_HEARTBEAT_MS);
@@ -116,6 +156,35 @@ export const initSocket = (httpServer) => {
     socket.on('presence:ping', (_payload = {}, acknowledge) => {
       touchUserPresence(uid).catch(() => {});
       if (typeof acknowledge === 'function') acknowledge({ ok: true, userId: uid });
+    });
+
+    socket.on('presence:check', async ({ userId: targetUid } = {}, acknowledge) => {
+      if (!targetUid) return typeof acknowledge === 'function' && acknowledge({ isOnline: false });
+      try {
+        const numId = Number(targetUid);
+        const hasLiveSocket = userSocketsMap.has(numId) && userSocketsMap.get(numId).size > 0;
+        let isOnline = hasLiveSocket;
+        if (!isOnline && presenceDeps.isRedisAvailable()) {
+          const live = await presenceDeps.cacheGet(presenceRedisKey(numId));
+          isOnline = Boolean(live);
+        }
+        if (!isOnline) {
+          try {
+            const profile = await UserProfile.findOne({
+              where: { user_id: numId },
+              attributes: ['is_online'],
+            });
+            if (profile?.is_online) isOnline = true;
+          } catch (_) {}
+        }
+        if (typeof acknowledge === 'function') {
+          acknowledge({ ok: true, userId: numId, isOnline });
+        }
+      } catch (err) {
+        if (typeof acknowledge === 'function') {
+          acknowledge({ ok: false, isOnline: false });
+        }
+      }
     });
 
     socket.on('chat:typing', ({ chatId, isTyping } = {}) => {

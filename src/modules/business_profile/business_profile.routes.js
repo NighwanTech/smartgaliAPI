@@ -1,7 +1,8 @@
 import express from 'express';
 import * as businessProfileController from './business_profile.controller.js';
+import * as businessKycController from '../business_kyc/business_kyc.controller.js';
 import { uploadImage } from '../../utils/fileUpload.js';
-import { authenticate, optionalAuthenticate } from '../../middleware/auth.middleware.js';
+import { authenticate, optionalAuthenticate, requireGlobalAdmin } from '../../middleware/auth.middleware.js';
 import { requireBusinessOwnership } from '../../middleware/businessAuth.middleware.js';
 import { requireSocietyRole } from '../../middleware/societyAuth.middleware.js';
 import SocietyBusinessAccess from './society_business_access.model.js';
@@ -32,10 +33,18 @@ const loadSocietyAccessContext = async (req, res, next) => {
   }
 };
 
+// Upload logo or cover banner media to persistent uploads/business storage (must precede '/:id')
+router.post(
+  '/upload-media',
+  authenticate,
+  uploadImage('business').single('image'),
+  businessProfileController.uploadBusinessMedia
+);
+
 // Create & list profiles
 router.post(
   '/',
-  optionalAuthenticate,
+  authenticate,
   uploadImage('business').single('logo'),
   businessProfileController.createProfile
 );
@@ -91,13 +100,16 @@ router.post('/:id/follow', authenticate, businessProfileController.followBusines
 router.delete('/:id/follow', authenticate, businessProfileController.unfollowBusiness);
 router.put(
   '/:id',
-  optionalAuthenticate,
+  authenticate,
+  attachBusinessIdParam,
   uploadImage('business').single('logo'),
   businessProfileController.updateProfile
 );
 router.delete('/:id', authenticate, attachBusinessIdParam, businessProfileController.deleteProfile);
 
 // Business location & coverage configuration routes
+router.get('/:id/documents', authenticate, businessKycController.getDocumentsForBusiness);
+router.post('/:id/documents', authenticate, attachBusinessIdParam, businessKycController.saveDocumentsForBusiness);
 router.get('/:id/coverage', optionalAuthenticate, businessProfileController.getBusinessCoverage);
 router.put(
   '/:id/coverage',
@@ -117,10 +129,10 @@ router.post(
   businessProfileController.requestSocietyAccess
 );
 
-// Moderation & featured status actions
-router.put('/:id/approve', businessProfileController.approveProfile);
-router.put('/:id/reject', businessProfileController.rejectProfile);
-router.put('/:id/feature', businessProfileController.featureProfile);
-router.put('/:id/unfeature', businessProfileController.unfeatureProfile);
+// Moderation & featured status actions (Global Admin only)
+router.put('/:id/approve', authenticate, requireGlobalAdmin, businessProfileController.approveProfile);
+router.put('/:id/reject', authenticate, requireGlobalAdmin, businessProfileController.rejectProfile);
+router.put('/:id/feature', authenticate, requireGlobalAdmin, businessProfileController.featureProfile);
+router.put('/:id/unfeature', authenticate, requireGlobalAdmin, businessProfileController.unfeatureProfile);
 
 export default router;

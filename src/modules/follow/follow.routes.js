@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Follow Routes — Phase 8
  * ─────────────────────────────────────────────────────────────────────────────
  * All routes require JWT authentication.
@@ -21,6 +21,8 @@ import {
   followers,
   following,
   unfollow,
+  discover,
+  getProfile,
 } from './follow.controller.js';
 
 const router = express.Router();
@@ -114,6 +116,28 @@ router.get('/followers', followers);
  *         description: Paginated list of users being followed
  */
 router.get('/following', following);
+
+/**
+ * @swagger
+ * /api/v1/users/discover:
+ *   get:
+ *     summary: Discover and search users
+ *     tags: [Follow]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/discover', discover);
+
+/**
+ * @swagger
+ * /api/v1/users/profile/{id}:
+ *   get:
+ *     summary: Get public user profile with stats and follow status
+ *     tags: [Follow]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/profile/:id', getProfile);
 
 /**
  * @swagger

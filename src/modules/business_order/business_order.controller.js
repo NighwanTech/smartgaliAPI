@@ -1,4 +1,5 @@
 import * as orderService from './business_order.service.js';
+import * as razorpayService from './razorpay.service.js';
 import BusinessProfile from '../business_profile/business_profile.model.js';
 import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
@@ -142,4 +143,124 @@ export const cancelOrderByCustomer = async (req, res) => {
     return errorResponse(res, code, err.message || 'Failed to cancel order.');
   }
 };
+
+export const getRazorpayConfig = async (req, res) => {
+  try {
+    const keyId = razorpayService.getRazorpayKeyId();
+    return successResponse(res, 200, 'Razorpay configuration retrieved.', { key_id: keyId });
+  } catch (err) {
+    return errorResponse(res, 500, 'Failed to fetch Razorpay config.');
+  }
+};
+
+export const createRazorpayOrder = async (req, res) => {
+  try {
+    let { amount, currency, receipt, notes, business_id, items, delivery_type, promo_code } = req.body;
+
+    // Enterprise Server Authority: If items are passed, calculate authoritative total from database!
+    if (business_id && Array.isArray(items) && items.length > 0) {
+      const quote = await orderService.quoteOrder({
+        business_id,
+        items,
+        delivery_type: delivery_type || 'home_delivery',
+        payment_mode: 'prepaid',
+        promo_code,
+      });
+      if (quote?.total_amount && quote.total_amount > 0) {
+        amount = quote.total_amount;
+      }
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      return errorResponse(res, 400, 'Valid order amount is required to create a Razorpay payment order.');
+    }
+
+    const rzpOrder = await razorpayService.createRazorpayOrder({
+      amount,
+      currency: currency || 'INR',
+      receipt: receipt || `rcpt_${Date.now()}`,
+      notes: notes || {},
+    });
+    return successResponse(res, 200, 'Razorpay order created successfully.', rzpOrder);
+  } catch (err) {
+    return errorResponse(res, 400, err.message || 'Failed to create Razorpay order.');
+  }
+};
+
+export const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { order_id, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const verification = razorpayService.verifyRazorpayPaymentSignature({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });
+
+    if (!verification.isValid) {
+      return errorResponse(res, 400, verification.message || 'Razorpay payment signature verification failed.');
+    }
+
+    if (order_id) {
+      await orderService.confirmOrderPayment(order_id, {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+    }
+
+    return successResponse(res, 200, 'Payment verified successfully.', {
+      verified: true,
+      order_id: order_id || null,
+      razorpay_payment_id,
+      is_sandbox: verification.is_sandbox || false,
+    });
+  } catch (err) {
+    return errorResponse(res, 400, err.message || 'Payment verification failed.');
+  }
+};
+
+/**
+ * Enterprise Razorpay Webhook Handler:
+ * Server-to-server async notifications from Razorpay gateway.
+ */
+export const handleRazorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const rawBody = req.rawBody || req.body;
+
+    const isValid = razorpayService.verifyRazorpayWebhookSignature(rawBody, signature);
+    if (!isValid) {
+      return errorResponse(res, 400, 'Invalid Razorpay webhook signature.');
+    }
+
+    const event = typeof req.body === 'object' && !Buffer.isBuffer(req.body)
+      ? req.body
+      : JSON.parse(rawBody.toString('utf8'));
+
+    const result = await orderService.handleRazorpayWebhookEvent(event);
+    return successResponse(res, 200, 'Razorpay webhook processed successfully.', result);
+  } catch (err) {
+    console.error(`[Razorpay Webhook Error] ${err.message}`);
+    return errorResponse(res, 500, err.message || 'Webhook processing failed.');
+  }
+};
+
+/**
+ * Enterprise Explicit Refund Endpoint:
+ */
+export const refundOrderPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+    const result = await orderService.refundOrderPayment(id, {
+      amount,
+      reason,
+      actorId: req.user?.id,
+    });
+    return successResponse(res, 200, 'Refund initiated successfully.', result);
+  } catch (err) {
+    return errorResponse(res, err.statusCode || 400, err.message || 'Failed to process refund.');
+  }
+};
+
 

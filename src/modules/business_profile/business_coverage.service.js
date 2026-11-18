@@ -653,6 +653,8 @@ export const evaluateBusinessMatch = (businessPlain, areas = [], accesses = [], 
           },
         ];
 
+  const defaultShopRadius = Number(businessPlain.default_radius_km || 10);
+
   for (const area of candidateAreas) {
     const areaLat = toNullableFloat(area.origin_latitude) ?? shopLat;
     const areaLng = toNullableFloat(area.origin_longitude) ?? shopLng;
@@ -665,28 +667,22 @@ export const evaluateBusinessMatch = (businessPlain, areas = [], accesses = [], 
       }
     }
 
-    // When customer picked an explicit distance cap ("Within X km"), strictly enforce distance first
-    if (strictUserRadius) {
-      if (areaDistKm !== null && areaDistKm <= queryLoc.radius_km) {
-        const shopCap = area.coverage_method === 'RADIUS' ? Number(area.resolved_radius_km || 15) : queryLoc.radius_km;
-        if (area.coverage_method !== 'RADIUS' || areaDistKm <= shopCap) {
-          matchedBy = area.coverage_method;
-          matchedArea = area;
-          bestDistance = areaDistKm;
-          break;
-        }
-      }
-      continue;
-    }
-
     if (area.coverage_method === 'RADIUS' && areaDistKm !== null) {
-      const radiusLimit = Number(area.resolved_radius_km || businessPlain.default_radius_km || 10);
-      if (areaDistKm <= radiusLimit) {
+      const shopCap = Number(area.resolved_radius_km || defaultShopRadius);
+      const withinUserCap = !strictUserRadius || areaDistKm <= queryLoc.radius_km;
+      if (withinUserCap && areaDistKm <= shopCap) {
         matchedBy = 'RADIUS';
         matchedArea = area;
         bestDistance = areaDistKm;
         break;
       }
+      continue;
+    }
+
+    const withinStrictUserCap =
+      !strictUserRadius || areaDistKm === null || areaDistKm <= queryLoc.radius_km;
+    if (!withinStrictUserCap) {
+      continue;
     }
 
     if (

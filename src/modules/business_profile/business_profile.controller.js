@@ -1,21 +1,76 @@
 import { successResponse, errorResponse } from '../../utils/response.js';
+import { getImageUrl } from '../../utils/fileUpload.js';
 import * as businessProfileService from './business_profile.service.js';
 import * as businessFollowService from './business_follow.service.js';
 import { getPublicSearchSuggestions } from '../business_product/business_product.service.js';
+import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
+
+export const uploadBusinessMedia = async (req, res) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, 400, 'No image file uploaded.');
+    }
+    const imageUrl = getImageUrl(req, req.file, 'business');
+    return successResponse(res, 201, 'Business media uploaded successfully.', {
+      url: imageUrl,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+    });
+  } catch (error) {
+    return errorResponse(res, 400, error.message || 'Failed to upload business media.');
+  }
+};
+
+const stripNonAdminModerationFields = (data, req, { allowDraftStatus = false } = {}) => {
+  const isAdmin = Boolean(req.user && isGlobalAdminUser(req.user));
+  if (isAdmin) return true;
+
+  delete data.is_verified;
+  delete data.isVerified;
+  delete data.is_featured;
+  delete data.isFeatured;
+  delete data.rejection_reason;
+  delete data.rejectionReason;
+  delete data.reviewed_by;
+  delete data.reviewedBy;
+  delete data.reviewed_at;
+  delete data.reviewedAt;
+  delete data.verified_by;
+
+  if (!allowDraftStatus) {
+    delete data.verification_status;
+    delete data.verificationStatus;
+  } else {
+    const requestedStatus = (data.verification_status ?? data.verificationStatus ?? '')
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (requestedStatus !== 'draft') {
+      delete data.verification_status;
+      delete data.verificationStatus;
+    }
+  }
+  return false;
+};
 
 export const createProfile = async (req, res, next) => {
   try {
     const data = { ...req.body };
+    stripNonAdminModerationFields(data, req, { allowDraftStatus: true });
     if (req.user?.id && !data.userId && !data.user_id) {
       data.userId = req.user.id;
       data.created_by = data.created_by || req.user.id;
     }
     if (req.file) {
-      data.logo = req.file.path.replace(/\\/g, '/');
+      data.logo = getImageUrl(req, req.file, 'business');
     }
     const profile = await businessProfileService.createProfile(data);
     return successResponse(res, 201, 'Business profile created successfully', profile);
   } catch (error) {
+    if (error.statusCode) {
+      return errorResponse(res, error.statusCode, error.message);
+    }
     next(error);
   }
 };
@@ -86,6 +141,7 @@ export const getProfileById = async (req, res, next) => {
     const profile = await businessProfileService.getProfileById(req.params.id, {
       ...req.query,
       _viewerUserId: req.user?.id || req.user?.userId || null,
+      _isAdmin: Boolean(req.user && isGlobalAdminUser(req.user)),
     });
     if (!profile) {
       return errorResponse(res, 404, 'Business profile not found');
@@ -99,11 +155,13 @@ export const getProfileById = async (req, res, next) => {
 export const updateProfile = async (req, res, next) => {
   try {
     const data = { ...req.body };
+    const isAdminActor = stripNonAdminModerationFields(data, req, { allowDraftStatus: false });
+    data._isAdminActor = isAdminActor;
     if (req.user?.id && !data.updated_by) {
       data.updated_by = req.user.id;
     }
     if (req.file) {
-      data.logo = req.file.path.replace(/\\/g, '/');
+      data.logo = getImageUrl(req, req.file, 'business');
     }
     const profile = await businessProfileService.updateProfile(req.params.id, data);
     if (!profile) {
@@ -111,6 +169,9 @@ export const updateProfile = async (req, res, next) => {
     }
     return successResponse(res, 200, 'Business profile updated successfully', profile);
   } catch (error) {
+    if (error.statusCode) {
+      return errorResponse(res, error.statusCode, error.message);
+    }
     next(error);
   }
 };
@@ -221,8 +282,8 @@ export const deleteProfile = async (req, res, next) => {
 
 export const approveProfile = async (req, res, next) => {
   try {
-    const { updated_by } = req.body;
-    const profile = await businessProfileService.approveProfile(req.params.id, updated_by);
+    const actorId = req.user?.id || req.user?.userId || req.body?.updated_by;
+    const profile = await businessProfileService.approveProfile(req.params.id, actorId);
     if (!profile) {
       return errorResponse(res, 404, 'Business profile not found');
     }
@@ -234,8 +295,9 @@ export const approveProfile = async (req, res, next) => {
 
 export const rejectProfile = async (req, res, next) => {
   try {
-    const { rejectRemarks, updated_by } = req.body;
-    const profile = await businessProfileService.rejectProfile(req.params.id, rejectRemarks, updated_by);
+    const { rejectRemarks } = req.body;
+    const actorId = req.user?.id || req.user?.userId || req.body?.updated_by;
+    const profile = await businessProfileService.rejectProfile(req.params.id, rejectRemarks, actorId);
     if (!profile) {
       return errorResponse(res, 404, 'Business profile not found');
     }

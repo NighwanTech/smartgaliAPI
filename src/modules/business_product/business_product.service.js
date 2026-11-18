@@ -32,6 +32,14 @@ import {
 } from '../business_category/business_search_intelligence.service.js';
 import * as businessOfferService from '../business_offer/business_offer.service.js';
 
+const EPHEMERAL_MEDIA_RE = /^(blob:|data:|file:|content:|asset-library:|ph:\/\/|[a-zA-Z]:[/\\]|\/(data|storage|var|private|Users)\/)/i;
+
+export const isEphemeralMediaUrl = (value) => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && EPHEMERAL_MEDIA_RE.test(trimmed);
+};
+
 /**
  * Derive stock status from quantity and threshold
  */
@@ -265,10 +273,21 @@ export const validateAndSanitizeProductPayload = async (raw, isUpdate = false, p
   }
 
   // 3. Media & JSON array fields (satisfy MariaDB json_valid check constraints)
+  if (typeof data.primary_image === 'string') {
+    data.primary_image = data.primary_image.trim();
+    if (isEphemeralMediaUrl(data.primary_image)) {
+      throw new Error('Temporary local or browser blob image paths cannot be saved directly. Upload the image file first.');
+    }
+  }
   if (data.images !== undefined) {
-    data.images = parseJsonArray(data.images)
+    const parsedImgs = parseJsonArray(data.images)
       .filter((u) => typeof u === 'string' && u.trim().length > 0)
-      .slice(0, 10);
+      .map((u) => u.trim());
+    const invalidImg = parsedImgs.find((u) => isEphemeralMediaUrl(u));
+    if (invalidImg) {
+      throw new Error('Temporary local or browser blob image paths in gallery cannot be saved directly. Upload images first.');
+    }
+    data.images = parsedImgs.slice(0, 10);
   }
   if (data.tags !== undefined) {
     data.tags = parseJsonArray(data.tags).map((t) => String(t).trim()).filter(Boolean);
@@ -371,6 +390,23 @@ export const validateAndSanitizeProductPayload = async (raw, isUpdate = false, p
 export const createProduct = async (rawProductData, userId, isGlobalAdmin = false) => {
   const productData = await validateAndSanitizeProductPayload(rawProductData, false);
 
+  const parentBusiness = await BusinessProfile.findOne({
+    where: { id: productData.business_id, is_deleted: false },
+    attributes: ['id', 'is_verified', 'verification_status'],
+  });
+  if (!parentBusiness) {
+    const err = new Error('Business profile not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const normalizedStatus = productData.status || 'active';
+  if (!isGlobalAdmin && parentBusiness.verification_status === 'rejected' && normalizedStatus !== 'draft') {
+    const err = new Error('Your business KYC was rejected. Please resolve & resubmit KYC before publishing products.');
+    err.statusCode = 403;
+    throw err;
+  }
+
   const transaction = await sequelize.transaction();
   try {
     const mrp = parseFloat(productData.mrp) || 0;
@@ -390,13 +426,16 @@ export const createProduct = async (rawProductData, userId, isGlobalAdmin = fals
       if (cat) categoryName = cat.name;
     }
 
-    // Auto-approve newly created active products so they immediately appear in catalog and storefront; keep drafts as 'draft'
-    const normalizedStatus = productData.status || 'active';
+    // Store KYC gate: only verified businesses (or admins) can auto-approve active listings;
+    // unverified businesses keep newly submitted products held as 'pending'.
+    const canAutoApprove = isGlobalAdmin || Boolean(parentBusiness.is_verified);
     const approvalStatus = normalizedStatus === 'draft'
-      ? (productData.approval_status === 'approved' ? 'approved' : 'draft')
-      : (productData.approval_status && productData.approval_status !== 'pending'
-          ? productData.approval_status
-          : 'approved');
+      ? (productData.approval_status === 'approved' && canAutoApprove ? 'approved' : 'draft')
+      : !canAutoApprove
+        ? 'pending'
+        : (productData.approval_status && productData.approval_status !== 'pending'
+            ? productData.approval_status
+            : 'approved');
 
     const payload = {
       ...productData,
@@ -1182,6 +1221,29 @@ const attachActiveOfferToProductPlain = (plain, activeCampaigns = []) => {
   return plain;
 };
 
+const sanitizePublicProductMedia = (plain) => {
+  let rawImages = plain.images;
+  if (typeof rawImages === 'string') {
+    try {
+      rawImages = JSON.parse(rawImages);
+    } catch {
+      rawImages = rawImages.trim() ? [rawImages.trim()] : [];
+    }
+  }
+  const cleanImages = Array.isArray(rawImages)
+    ? rawImages
+        .map((u) => String(u ?? '').trim())
+        .filter((u) => u && !isEphemeralMediaUrl(u))
+    : [];
+  const rawPrimary = plain.primary_image != null ? String(plain.primary_image).trim() : '';
+  const cleanPrimary = rawPrimary && !isEphemeralMediaUrl(rawPrimary)
+    ? rawPrimary
+    : (cleanImages[0] || null);
+  plain.primary_image = cleanPrimary;
+  plain.images = cleanImages;
+  return plain;
+};
+
 const sanitizePublicProduct = (productInstance, shopEval, queryLoc, activeCampaigns = []) => {
   const plain = productInstance.toJSON ? productInstance.toJSON() : { ...productInstance.dataValues };
   delete plain.cost_price;
@@ -1194,6 +1256,7 @@ const sanitizePublicProduct = (productInstance, shopEval, queryLoc, activeCampai
       return publicVariant;
     });
   }
+  sanitizePublicProductMedia(plain);
   attachActiveOfferToProductPlain(plain, activeCampaigns);
   if (queryLoc && queryLoc.hasLocationFilter) {
     const eligibility = businessCoverageService.checkProductDeliveryEligibility(plain, shopEval, queryLoc);
@@ -1332,6 +1395,13 @@ export const getPublicProductsNearby = async (query = {}) => {
   if (query.is_verified !== undefined && query.is_verified !== '') {
     shopWhere.is_verified =
       query.is_verified === true || query.is_verified === 'true' || query.is_verified === '1';
+  } else if (
+    !query.business_id &&
+    query.include_unverified !== true &&
+    query.include_unverified !== 'true'
+  ) {
+    // Public discovery hides unverified/pending/rejected stores unless explicitly filtering a shop
+    shopWhere.is_verified = true;
   }
   const geoBBox = buildGeoBoundingBoxWhere(queryLoc);
   if (geoBBox) {
@@ -1885,6 +1955,13 @@ export const getPublicProductById = async (id, query = {}) => {
       const { cost_price, costPrice, ...publicVariant } = v;
       return publicVariant;
     });
+  }
+
+  sanitizePublicProductMedia(plain);
+  if (plain.business_id) {
+    const campaignsMap = await businessOfferService.getActiveEvaluableCampaignsMap([plain.business_id]);
+    const activeCampaigns = campaignsMap.get(Number(plain.business_id)) || [];
+    attachActiveOfferToProductPlain(plain, activeCampaigns);
   }
 
   const queryLoc = businessCoverageService.parseLocationQuery(query);

@@ -2,6 +2,7 @@ import { successResponse, errorResponse } from '../../utils/response.js';
 import { getImageUrl } from '../../utils/fileUpload.js';
 import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
 import * as businessCategoryService from './business_category.service.js';
+import * as businessKycService from '../business_kyc/business_kyc.service.js';
 import * as searchIntelligence from './business_search_intelligence.service.js';
 import { DEFAULT_SYNONYMS_BY_CANONICAL } from './category_matcher.helper.js';
 
@@ -41,6 +42,21 @@ export const getCategorySpecifications = async (req, res, next) => {
     const { id } = req.params;
     const template = await businessCategoryService.getCategorySpecifications(id);
     return successResponse(res, 200, 'Category specifications fetched successfully', template);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCategoryKycRequirements = async (req, res, next) => {
+  try {
+    const result = await businessKycService.getRequirementsForCategory({
+      category_id: req.params.id,
+      category_name: req.query.category_name ?? req.query.category,
+      sells_branded_goods: req.query.sells_branded_goods ?? req.query.sellsBrandedGoods ?? false,
+      gst_exempt: req.query.gst_exempt ?? req.query.gstExempt ?? false,
+      includeInapplicable: req.query.include_all === 'true',
+    });
+    return successResponse(res, 200, 'Category dynamic KYC requirements fetched successfully', result);
   } catch (error) {
     next(error);
   }

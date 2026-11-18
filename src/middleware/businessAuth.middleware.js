@@ -32,26 +32,13 @@ export const requireBusinessOwnership = async (req, res, next) => {
       return errorResponse(res, 401, 'Authentication required.');
     }
 
-    let business = await BusinessProfile.findOne({
+    const business = await BusinessProfile.findOne({
       where: {
         id: businessId,
         userId: userId,
         is_deleted: false,
       },
     });
-
-    if (!business) {
-      if (Number(businessId) === 101) {
-        business = await BusinessProfile.findOne({ where: { id: 101, is_deleted: false } });
-      } else {
-        business = await BusinessProfile.findOne({
-          where: {
-            userId: userId,
-            is_deleted: false,
-          },
-        });
-      }
-    }
 
     if (!business) {
       return errorResponse(res, 403, 'Access denied: You do not own or have permission to manage this business.');

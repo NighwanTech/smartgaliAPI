@@ -244,3 +244,48 @@ export const bulkDeleteChats = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/v1/chat/attachment/:filename/download
+ * Downloads a chat attachment with the original filename and attachment Content-Disposition.
+ */
+export const downloadAttachment = async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const originalName = req.query.name || req.query.filename || filename;
+    const safePath = path.join(env.uploadsPath, filename);
+
+    if (!fs.existsSync(safePath)) {
+      return errorResponse(res, 404, 'Attachment file not found');
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.download(safePath, originalName);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/chat/attachment/:filename/preview
+ * Streams a chat attachment for browser/in-app preview with inline Content-Disposition and permissive CORS.
+ */
+export const previewAttachment = async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const originalName = req.query.name || req.query.filename || filename;
+    const safePath = path.join(env.uploadsPath, filename);
+
+    if (!fs.existsSync(safePath)) {
+      return errorResponse(res, 404, 'Attachment file not found');
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(originalName)}"`);
+    return res.sendFile(safePath);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -12,6 +12,62 @@ import SocietyProfile from '../society_profile/society_profile.model.js';
 import User from '../user/user.model.js';
 import businessCoverageService from './business_coverage.service.js';
 import { fetchFollowStatsByBusinessIds } from './business_follow.service.js';
+import { isEphemeralMediaUrl } from '../business_product/business_product.service.js';
+import BusinessDocument from '../business_kyc/business_document.model.js';
+import {
+  ensureBusinessKycReady,
+  validateSubmittedKycDocuments,
+  saveBusinessDocuments,
+} from '../business_kyc/business_kyc.service.js';
+
+const serializeAvailabilityDays = (val) => {
+  if (val === undefined || val === null) return null;
+  if (Array.isArray(val) || typeof val === 'object') {
+    return JSON.stringify(val);
+  }
+  const trimmed = String(val).trim();
+  if (!trimmed) return null;
+  try {
+    JSON.parse(trimmed);
+    return trimmed;
+  } catch (_) {
+    return JSON.stringify(trimmed);
+  }
+};
+
+const formatAvailabilityDays = (val) => {
+  if (val === undefined || val === null) return null;
+  if (Array.isArray(val)) return val.join(', ');
+  const trimmed = String(val).trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed.join(', ');
+    if (typeof parsed === 'string') return parsed;
+  } catch (_) {}
+  return trimmed;
+};
+
+const sanitizePersistedMediaUrl = (val) => {
+  if (val === undefined || val === null) return null;
+  const trimmed = String(val).trim();
+  if (!trimmed || isEphemeralMediaUrl(trimmed)) return null;
+  return trimmed;
+};
+
+const assertValidPersistedMediaUrl = (fieldLabel, val) => {
+  if (val === undefined || val === null || val === '') return null;
+  const trimmed = String(val).trim();
+  if (!trimmed) return null;
+  if (isEphemeralMediaUrl(trimmed)) {
+    const err = new Error(
+      `${fieldLabel} cannot use a temporary browser blob, file, or local path (${trimmed}). Please upload via /business-profile/upload-media first.`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+  return trimmed;
+};
 import {
   normalizeText,
   resolveCategoryFromMaster,
@@ -154,10 +210,10 @@ const normalizeProfileInput = async (raw = {}, isUpdate = false) => {
   if (raw.website !== undefined) mapped.website = raw.website;
 
   if (raw.logo_url !== undefined || raw.logoUrl !== undefined || raw.logo !== undefined) {
-    mapped.logo_url = raw.logo_url ?? raw.logoUrl ?? raw.logo ?? null;
+    mapped.logo_url = assertValidPersistedMediaUrl('logo_url', raw.logo_url ?? raw.logoUrl ?? raw.logo);
   }
   if (raw.bannerUrl !== undefined || raw.banner_url !== undefined) {
-    mapped.bannerUrl = raw.bannerUrl ?? raw.banner_url ?? null;
+    mapped.bannerUrl = assertValidPersistedMediaUrl('bannerUrl', raw.bannerUrl ?? raw.banner_url);
   }
   if (raw.operatingHours !== undefined || raw.operating_hours !== undefined) {
     mapped.operatingHours = raw.operatingHours ?? raw.operating_hours ?? null;
@@ -166,7 +222,9 @@ const normalizeProfileInput = async (raw = {}, isUpdate = false) => {
     mapped.hourlyRate = toNullableFloat(raw.hourlyRate ?? raw.hourly_rate);
   }
   if (raw.availabilityDays !== undefined || raw.availability_days !== undefined) {
-    mapped.availabilityDays = raw.availabilityDays ?? raw.availability_days ?? null;
+    mapped.availabilityDays = serializeAvailabilityDays(
+      raw.availabilityDays ?? raw.availability_days
+    );
   }
 
   // Location fields check
@@ -247,10 +305,94 @@ const normalizeProfileInput = async (raw = {}, isUpdate = false) => {
   if (raw.created_by !== undefined) mapped.created_by = toNullableInt(raw.created_by);
   if (raw.updated_by !== undefined) mapped.updated_by = toNullableInt(raw.updated_by);
 
-  // If category_id was sent without serviceCategory string, hydrate category name
+  // Enterprise Onboarding & KYC fields
+  if (raw.owner_name !== undefined || raw.ownerName !== undefined) {
+    mapped.owner_name = (raw.owner_name ?? raw.ownerName)?.toString().trim() || null;
+  }
+  if (raw.legal_entity_type !== undefined || raw.legalEntityType !== undefined) {
+    const rawEntity = (raw.legal_entity_type ?? raw.legalEntityType ?? 'proprietorship')
+      .toString()
+      .trim()
+      .toLowerCase();
+    mapped.legal_entity_type = rawEntity || 'proprietorship';
+  }
+  if (raw.pan_number !== undefined || raw.panNumber !== undefined) {
+    const pan = (raw.pan_number ?? raw.panNumber)?.toString().trim().toUpperCase() || null;
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+      const err = new Error('Invalid PAN Number format (expected 10 characters like ABCDE1234F).');
+      err.statusCode = 400;
+      throw err;
+    }
+    mapped.pan_number = pan;
+  }
+  if (raw.gst_exempt !== undefined || raw.gstExempt !== undefined) {
+    mapped.gst_exempt = toBool(raw.gst_exempt ?? raw.gstExempt, false);
+  }
+  if (raw.gstin !== undefined || raw.gstNumber !== undefined) {
+    const gst = (raw.gstin ?? raw.gstNumber)?.toString().trim().toUpperCase() || null;
+    if (gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gst)) {
+      const err = new Error('Invalid 15-character GSTIN format (e.g. 10ABCDE1234F1Z5).');
+      err.statusCode = 400;
+      throw err;
+    }
+    mapped.gstin = gst;
+  }
+  if (raw.sells_branded_goods !== undefined || raw.sellsBrandedGoods !== undefined) {
+    mapped.sells_branded_goods = toBool(raw.sells_branded_goods ?? raw.sellsBrandedGoods, false);
+  }
+  if (raw.bank_account_name !== undefined || raw.bankAccountName !== undefined) {
+    mapped.bank_account_name = (raw.bank_account_name ?? raw.bankAccountName)?.toString().trim() || null;
+  }
+  if (raw.bank_account_number !== undefined || raw.bankAccountNumber !== undefined) {
+    mapped.bank_account_number = (raw.bank_account_number ?? raw.bankAccountNumber)?.toString().trim() || null;
+  }
+  if (raw.bank_ifsc !== undefined || raw.bankIfsc !== undefined) {
+    const ifsc = (raw.bank_ifsc ?? raw.bankIfsc)?.toString().trim().toUpperCase() || null;
+    if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      const err = new Error('Invalid IFSC Code format (e.g. SBIN0001234).');
+      err.statusCode = 400;
+      throw err;
+    }
+    mapped.bank_ifsc = ifsc;
+  }
+  if (raw.upi_id !== undefined || raw.upiId !== undefined) {
+    const upi = (raw.upi_id ?? raw.upiId)?.toString().trim() || null;
+    mapped.upi_id = upi;
+  }
+  if (raw.verification_status !== undefined || raw.verificationStatus !== undefined) {
+    const vs = (raw.verification_status ?? raw.verificationStatus)?.toString().trim().toLowerCase();
+    if (['draft', 'pending', 'under_review', 'approved', 'rejected'].includes(vs)) {
+      mapped.verification_status = vs;
+    }
+  } else if (!isUpdate) {
+    mapped.verification_status = 'pending';
+  }
+  if (raw.terms_accepted !== undefined || raw.termsAccepted !== undefined) {
+    const accepted = toBool(raw.terms_accepted ?? raw.termsAccepted, false);
+    mapped.terms_accepted = accepted;
+    if (accepted && !isUpdate) {
+      mapped.terms_accepted_at = new Date();
+    }
+  }
+  if (!isUpdate && !mapped.submitted_at && mapped.verification_status !== 'draft') {
+    mapped.submitted_at = new Date();
+  }
+
+  // Bidirectional category sync between category_id and serviceCategory
   if (mapped.category_id && !mapped.serviceCategory) {
     const cat = await BusinessCategory.findByPk(mapped.category_id);
     if (cat) mapped.serviceCategory = cat.name;
+  } else if (mapped.serviceCategory && !mapped.category_id) {
+    const trimmedCategory = String(mapped.serviceCategory).trim();
+    if (trimmedCategory) {
+      const cat = await BusinessCategory.findOne({
+        where: sequelize.where(fn('LOWER', col('name')), trimmedCategory.toLowerCase()),
+      });
+      if (cat) {
+        mapped.category_id = cat.id;
+        mapped.serviceCategory = cat.name;
+      }
+    }
   }
 
   return mapped;
@@ -291,14 +433,15 @@ export const formatBusinessProfile = (instance, extras = {}) => {
     phone: p.phone ?? null,
     email: p.email ?? null,
     website: p.website ?? null,
-    logo_url: p.logo_url ?? null,
-    logo: p.logo_url ?? null,
-    banner_url: p.bannerUrl ?? null,
-    bannerUrl: p.bannerUrl ?? null,
+    logo_url: sanitizePersistedMediaUrl(p.logo_url),
+    logo: sanitizePersistedMediaUrl(p.logo_url),
+    banner_url: sanitizePersistedMediaUrl(p.bannerUrl),
+    bannerUrl: sanitizePersistedMediaUrl(p.bannerUrl),
     operating_hours: p.operatingHours ?? null,
     operatingHours: p.operatingHours ?? null,
     hourly_rate: p.hourlyRate !== null && p.hourlyRate !== undefined ? Number(p.hourlyRate) : null,
-    availability_days: p.availabilityDays ?? null,
+    availability_days: formatAvailabilityDays(p.availabilityDays),
+    availabilityDays: formatAvailabilityDays(p.availabilityDays),
     state_id: p.state_id ?? null,
     state_name: extras.state_name ?? p.state_name ?? null,
     district_id: p.district_id ?? null,
@@ -319,11 +462,35 @@ export const formatBusinessProfile = (instance, extras = {}) => {
         ? Number(p.default_radius_km)
         : 10.0,
     is_verified: Boolean(p.is_verified),
-    approval_status: Boolean(p.is_verified) ? 'approved' : (p.remark ? 'rejected' : 'pending'),
+    approval_status: Boolean(p.is_verified)
+      ? 'approved'
+      : (p.verification_status || (p.remark ? 'rejected' : 'pending')),
+    verification_status: p.verification_status || (Boolean(p.is_verified) ? 'approved' : (p.remark ? 'rejected' : 'pending')),
     is_featured: Boolean(p.is_featured),
     is_open: p.is_open !== undefined ? Boolean(p.is_open) : true,
     is_active: p.is_active !== undefined ? Boolean(p.is_active) : true,
-    owner_name: extras.owner_name ?? p.user?.userName ?? null,
+    owner_name: extras.owner_name ?? p.owner_name ?? p.user?.userName ?? null,
+    legal_entity_type: p.legal_entity_type || 'proprietorship',
+    gst_exempt: Boolean(p.gst_exempt),
+    sells_branded_goods: Boolean(p.sells_branded_goods),
+    terms_accepted: Boolean(p.terms_accepted),
+    submitted_at: p.submitted_at ?? null,
+    ...(extras._includePrivateKyc
+      ? {
+          pan_number: p.pan_number ?? null,
+          gstin: p.gstin ?? null,
+          bank_account_name: p.bank_account_name ?? null,
+          bank_account_number: p.bank_account_number ?? null,
+          bank_ifsc: p.bank_ifsc ?? null,
+          upi_id: p.upi_id ?? null,
+          rejection_reason: p.rejection_reason ?? p.remark ?? null,
+          documents: Array.isArray(p.documents)
+            ? p.documents
+            : Array.isArray(extras.documents)
+              ? extras.documents
+              : [],
+        }
+      : {}),
     rating: extras.rating !== undefined ? extras.rating : (p.rating ?? null),
     review_count: extras.review_count !== undefined ? extras.review_count : (p.review_count ?? 0),
     reviewCount: extras.review_count !== undefined ? extras.review_count : (p.review_count ?? 0),
@@ -432,10 +599,58 @@ const buildDefaultCoverageAreas = (mapped) => {
   return areas;
 };
 
+const assertUniqueTaxIdentity = async ({ panNumber, gstin, gstExempt = false, excludeBusinessId = null }) => {
+  if (panNumber) {
+    const panWhere = { pan_number: panNumber, is_deleted: false };
+    if (excludeBusinessId != null) {
+      panWhere.id = { [Op.ne]: excludeBusinessId };
+    }
+    const existingPan = await BusinessProfile.findOne({ where: panWhere, attributes: ['id'] });
+    if (existingPan) {
+      const err = new Error('A business profile with this PAN Number is already registered.');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+  if (gstin && !gstExempt) {
+    const gstWhere = { gstin, is_deleted: false };
+    if (excludeBusinessId != null) {
+      gstWhere.id = { [Op.ne]: excludeBusinessId };
+    }
+    const existingGst = await BusinessProfile.findOne({ where: gstWhere, attributes: ['id'] });
+    if (existingGst) {
+      const err = new Error('A business profile with this GSTIN is already registered.');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+};
+
 export const createProfile = async (profileData) => {
+  await ensureBusinessKycReady();
   const mapped = await normalizeProfileInput(profileData, false);
+  await assertUniqueTaxIdentity({
+    panNumber: mapped.pan_number,
+    gstin: mapped.gstin,
+    gstExempt: Boolean(mapped.gst_exempt),
+  });
   const explicitAreas = parseCoverageAreasInput(profileData);
   const actorId = mapped.created_by || mapped.userId || null;
+  const shouldEnforceKyc =
+    toBool(profileData.strict_kyc, false) ||
+    toBool(profileData.validate_kyc, false) ||
+    Array.isArray(profileData.documents);
+
+  let validatedDocs = [];
+  if (shouldEnforceKyc && mapped.verification_status !== 'draft') {
+    validatedDocs = await validateSubmittedKycDocuments({
+      category_id: mapped.category_id,
+      category_name: mapped.serviceCategory,
+      sells_branded_goods: mapped.sells_branded_goods,
+      gst_exempt: mapped.gst_exempt,
+      documents: profileData.documents || [],
+    });
+  }
 
   const createdId = await sequelize.transaction(async (t) => {
     const profile = await BusinessProfile.create(
@@ -446,6 +661,10 @@ export const createProfile = async (profileData) => {
       },
       { transaction: t }
     );
+
+    if (validatedDocs.length > 0) {
+      await saveBusinessDocuments(profile.id, actorId, validatedDocs, { transaction: t });
+    }
 
     const areasToPersist =
       explicitAreas && explicitAreas.length > 0 ? explicitAreas : buildDefaultCoverageAreas(mapped);
@@ -462,7 +681,7 @@ export const createProfile = async (profileData) => {
   });
 
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(createdId);
+  return getProfileById(createdId, { _includePrivateKyc: true });
 };
 
 export const resolvePinLocation = async (query = {}) => {
@@ -472,6 +691,7 @@ export const resolvePinLocation = async (query = {}) => {
 };
 
 export const getNearbyBusinesses = async (query = {}) => {
+  await ensureBusinessKycReady();
   const startedAt = Date.now();
   const loc = businessCoverageService.parseLocationQuery(query);
   const where = { is_deleted: false };
@@ -901,6 +1121,7 @@ export const getAllProfiles = async (query = {}) => {
 };
 
 export const getProfileById = async (id, query = {}) => {
+  await ensureBusinessKycReady();
   const profile = await BusinessProfile.findOne({
     where: { id, is_deleted: false },
     include: [
@@ -915,6 +1136,12 @@ export const getProfileById = async (id, query = {}) => {
       {
         model: SocietyBusinessAccess,
         as: 'societyAccesses',
+        where: { is_deleted: false },
+        required: false,
+      },
+      {
+        model: BusinessDocument,
+        as: 'documents',
         where: { is_deleted: false },
         required: false,
       },
@@ -983,7 +1210,12 @@ export const getProfileById = async (id, query = {}) => {
     loc
   );
 
+  const isOwnerViewer =
+    query._viewerUserId && plain.userId && Number(query._viewerUserId) === Number(plain.userId);
+  const includePrivateKyc = Boolean(query._includePrivateKyc || query._isAdmin || isOwnerViewer);
+
   return formatBusinessProfile(profile, {
+    _includePrivateKyc: includePrivateKyc,
     product_count: productCount,
     delivery_product_count: pCap.delivery_product_count || 0,
     pickup_product_count: pCap.pickup_product_count || 0,
@@ -995,7 +1227,7 @@ export const getProfileById = async (id, query = {}) => {
     state_name: stateRec?.name || null,
     district_name: districtRec?.district_name_english || null,
     society_name: plain.society_id ? socMap[Number(plain.society_id)]?.society_name || null : null,
-    owner_name: plain.user?.userName || null,
+    owner_name: plain.owner_name || plain.user?.userName || null,
     rating: avgRating,
     review_count: totalReviews,
     rating_breakdown: ratingBreakdown,
@@ -1009,27 +1241,64 @@ export const getProfileById = async (id, query = {}) => {
 };
 
 export const getProfileByUserId = async (userId) => {
-  let profile = await BusinessProfile.findOne({
+  await ensureBusinessKycReady();
+  const profile = await BusinessProfile.findOne({
     where: { userId, is_deleted: false },
     order: [['id', 'DESC']],
   });
 
-  if (!profile) {
-    profile = await BusinessProfile.findOne({
-      where: { id: 101, is_deleted: false },
-    });
-  }
   if (!profile) return null;
-  return getProfileById(profile.id);
+  return getProfileById(profile.id, { _viewerUserId: userId, _includePrivateKyc: true });
 };
 
 export const updateProfile = async (id, updateData) => {
+  await ensureBusinessKycReady();
   const profile = await BusinessProfile.findOne({
     where: { id, is_deleted: false },
   });
   if (!profile) return null;
 
+  const isAdminActor = Boolean(updateData._isAdminActor);
   const mapped = await normalizeProfileInput(updateData, true);
+  await assertUniqueTaxIdentity({
+    panNumber: mapped.pan_number,
+    gstin: mapped.gstin,
+    gstExempt: mapped.gst_exempt !== undefined ? Boolean(mapped.gst_exempt) : Boolean(profile.gst_exempt),
+    excludeBusinessId: profile.id,
+  });
+
+  // Enterprise Re-KYC gate: if a verified seller changes critical tax/identity/bank/category fields,
+  // reset verification to under_review so admin re-verifies before public listing continues.
+  if (!isAdminActor && profile.is_verified) {
+    const sensitiveFields = [
+      'category_id',
+      'serviceCategory',
+      'pan_number',
+      'gstin',
+      'gst_exempt',
+      'bank_account_number',
+      'bank_ifsc',
+      'legal_entity_type',
+      'sells_branded_goods',
+    ];
+    const hasSensitiveChange = sensitiveFields.some((field) => {
+      if (mapped[field] === undefined) return false;
+      const oldVal = profile[field] ?? null;
+      const newVal = mapped[field] ?? null;
+      return String(oldVal) !== String(newVal);
+    });
+    if (hasSensitiveChange) {
+      mapped.is_verified = false;
+      mapped.verification_status = 'under_review';
+      mapped.submitted_at = new Date();
+      mapped.rejection_reason = null;
+    }
+  } else if (!isAdminActor && profile.verification_status === 'rejected') {
+    mapped.verification_status = 'under_review';
+    mapped.submitted_at = new Date();
+    mapped.rejection_reason = null;
+  }
+
   const explicitAreas = parseCoverageAreasInput(updateData);
   const actorId = mapped.updated_by || profile.userId || null;
 
@@ -1078,7 +1347,7 @@ export const updateProfile = async (id, updateData) => {
   });
 
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(id);
+  return getProfileById(id, { _includePrivateKyc: true });
 };
 
 export const getBusinessCoverage = async (businessId) => {
@@ -1202,32 +1471,42 @@ export const softDeleteProfile = async (id, deletedRemarks, updated_by) => {
 };
 
 export const approveProfile = async (id, updated_by) => {
+  await ensureBusinessKycReady();
   const profile = await BusinessProfile.findOne({
     where: { id, is_deleted: false },
   });
   if (!profile) return null;
   await profile.update({
     is_verified: true,
+    verification_status: 'approved',
+    rejection_reason: null,
+    reviewed_by: updated_by || null,
+    reviewed_at: new Date(),
     updated_by,
     updatedAt: new Date(),
   });
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(id);
+  return getProfileById(id, { _includePrivateKyc: true });
 };
 
 export const rejectProfile = async (id, rejectRemarks, updated_by) => {
+  await ensureBusinessKycReady();
   const profile = await BusinessProfile.findOne({
     where: { id, is_deleted: false },
   });
   if (!profile) return null;
   await profile.update({
     is_verified: false,
+    verification_status: 'rejected',
+    rejection_reason: rejectRemarks || null,
     remark: rejectRemarks,
+    reviewed_by: updated_by || null,
+    reviewed_at: new Date(),
     updated_by,
     updatedAt: new Date(),
   });
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(id);
+  return getProfileById(id, { _includePrivateKyc: true });
 };
 
 export const featureProfile = async (id, updated_by) => {
@@ -1241,7 +1520,7 @@ export const featureProfile = async (id, updated_by) => {
     updatedAt: new Date(),
   });
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(id);
+  return getProfileById(id, { _includePrivateKyc: true });
 };
 
 export const unfeatureProfile = async (id, updated_by) => {
@@ -1255,5 +1534,5 @@ export const unfeatureProfile = async (id, updated_by) => {
     updatedAt: new Date(),
   });
   invalidateSearchQueryCache().catch(() => {});
-  return getProfileById(id);
+  return getProfileById(id, { _includePrivateKyc: true });
 };

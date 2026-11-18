@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Follow Controller — Phase 8
  * ─────────────────────────────────────────────────────────────────────────────
  * Routes:
@@ -19,6 +19,8 @@ import {
   unfollowUser,
   getFollowers,
   getFollowing,
+  discoverUsers,
+  getUserPublicProfile,
   FollowError,
 } from './follow.service.js';
 
@@ -98,6 +100,39 @@ export const unfollow = async (req, res, next) => {
       req.correlationId,
     );
     return successResponse(res, 200, 'Unfollowed successfully.', result);
+  } catch (error) {
+    if (error instanceof FollowError) {
+      return errorResponse(res, error.statusCode, error.message);
+    }
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/users/discover?query=...&page=1&limit=20
+ */
+export const discover = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { query, search, q, page, limit } = req.query;
+    const searchTerm = query || search || q || '';
+
+    const result = await discoverUsers(userId, { query: searchTerm, page, limit });
+    return successResponse(res, 200, 'Users discovered successfully.', result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/users/profile/:id
+ */
+export const getProfile = async (req, res, next) => {
+  try {
+    const currentUserId = req.user.id;
+    const targetUserId = req.params.id;
+    const result = await getUserPublicProfile(currentUserId, targetUserId);
+    return successResponse(res, 200, 'User profile fetched successfully.', result);
   } catch (error) {
     if (error instanceof FollowError) {
       return errorResponse(res, error.statusCode, error.message);

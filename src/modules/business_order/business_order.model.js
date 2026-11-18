@@ -95,6 +95,18 @@ const BusinessOrder = sequelize.define('BusinessOrder', {
     type: DataTypes.STRING(30),
     defaultValue: 'pending', // 'pending', 'completed', 'failed', 'refunded'
   },
+  razorpay_order_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  razorpay_payment_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  razorpay_signature: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
   status: {
     type: DataTypes.STRING(30),
     defaultValue: 'new', // 'new', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'completed', 'cancelled', 'returned', 'refunded'

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Follow Service — Phase 8
  * ─────────────────────────────────────────────────────────────────────────────
  * Implements:
@@ -262,12 +262,30 @@ export const getFollowers = async (userId, { page = 1, limit = 20 } = {}) => {
     order: [['id', 'DESC']],
   });
 
+  const followerUserIds = rows.map((r) => r.follower?.userId).filter(Boolean);
+  let followingBackSet = new Set();
+  if (followerUserIds.length > 0) {
+    const followingBackRows = await Follow.findAll({
+      where: {
+        follower_id: userId,
+        following_id: { [Op.in]: followerUserIds },
+        is_deleted: false,
+      },
+      attributes: ['following_id'],
+    });
+    followingBackSet = new Set(followingBackRows.map((r) => Number(r.following_id)));
+  }
+
   return {
     total: count,
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(count / safeLimit),
-    followers: rows.map((r) => serializeUser(r.follower)),
+    followers: rows.map((r) => {
+      const u = serializeUser(r.follower);
+      u.isFollowing = followingBackSet.has(u.userId);
+      return u;
+    }),
   };
 };
 
@@ -309,7 +327,11 @@ export const getFollowing = async (userId, { page = 1, limit = 20 } = {}) => {
     page: safePage,
     limit: safeLimit,
     totalPages: Math.ceil(count / safeLimit),
-    following: rows.map((r) => serializeUser(r.following)),
+    following: rows.map((r) => {
+      const u = serializeUser(r.following);
+      u.isFollowing = true;
+      return u;
+    }),
   };
 };
 
@@ -331,4 +353,134 @@ export const isFollowing = async (followerId, followingId) => {
   return !!row;
 };
 
-export default { followUser, unfollowUser, getFollowers, getFollowing, isFollowing };
+// ── 6. Discover Users ─────────────────────────────────────────────────────────
+
+/**
+ * Searches and discovers real users from the database.
+ * Dynamic search against username, full name, phone.
+ *
+ * @param {number} currentUserId — The authenticated user ID
+ * @param {object} options — { query, page, limit }
+ */
+export const discoverUsers = async (currentUserId, { query = '', page = 1, limit = 20 } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
+  const offset = (safePage - 1) * safeLimit;
+
+  const where = {
+    userId: { [Op.ne]: currentUserId },
+    is_deleted: false,
+    is_active: true,
+  };
+
+  const trimmed = String(query || '').trim();
+  if (trimmed) {
+    where[Op.or] = [
+      { userName: { [Op.like]: `%${trimmed}%` } },
+      { '$profile.fullName$': { [Op.like]: `%${trimmed}%` } },
+      { phone: { [Op.like]: `%${trimmed}%` } },
+    ];
+  }
+
+  const { count, rows } = await User.findAndCountAll({
+    where,
+    attributes: ['userId', 'userName', 'userRole'],
+    include: [{
+      model: UserProfile,
+      as: 'profile',
+      attributes: ['fullName', 'avatarUrl', 'locationName', 'bio'],
+      required: false,
+    }],
+    limit: safeLimit,
+    offset,
+    order: [['userId', 'DESC']],
+    subQuery: false,
+  });
+
+  const userIds = rows.map((r) => r.userId).filter(Boolean);
+  let followingSet = new Set();
+  if (userIds.length > 0) {
+    const followRows = await Follow.findAll({
+      where: {
+        follower_id: currentUserId,
+        following_id: { [Op.in]: userIds },
+        is_deleted: false,
+      },
+      attributes: ['following_id'],
+    });
+    followingSet = new Set(followRows.map((r) => Number(r.following_id)));
+  }
+
+  return {
+    total: count,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.ceil(count / safeLimit),
+    users: rows.map((u) => ({
+      userId: Number(u.userId),
+      userName: u.userName || '',
+      fullName: u.profile?.fullName || u.userName || '',
+      avatarUrl: u.profile?.avatarUrl || null,
+      userRole: u.userRole || 'resident',
+      locationName: u.profile?.locationName || null,
+      bio: u.profile?.bio || null,
+      isFollowing: followingSet.has(Number(u.userId)),
+    })),
+  };
+};
+
+// ── 7. Get Public Profile with Stats ─────────────────────────────────────────
+
+/**
+ * Returns target user's public profile enriched with follower count,
+ * following count, and relationship status relative to current user.
+ *
+ * @param {number} currentUserId
+ * @param {number} targetUserId
+ */
+export const getUserPublicProfile = async (currentUserId, targetUserId) => {
+  const user = await User.findOne({
+    where: { userId: targetUserId, is_deleted: false, is_active: true },
+    attributes: ['userId', 'userName', 'userRole', 'created_at'],
+    include: [{
+      model: UserProfile,
+      as: 'profile',
+      attributes: ['fullName', 'avatarUrl', 'locationName', 'bio', 'is_online', 'last_seen'],
+      required: false,
+    }],
+  });
+
+  if (!user) {
+    throw new FollowError('User not found.', 404);
+  }
+
+  const [followersCount, followingCount, followRow] = await Promise.all([
+    Follow.count({ where: { following_id: targetUserId, is_deleted: false } }),
+    Follow.count({ where: { follower_id: targetUserId, is_deleted: false } }),
+    currentUserId ? Follow.findOne({
+      where: {
+        follower_id: currentUserId,
+        following_id: targetUserId,
+        is_deleted: false,
+      },
+      attributes: ['id'],
+    }) : null,
+  ]);
+
+  return {
+    userId: Number(user.userId),
+    userName: user.userName || '',
+    fullName: user.profile?.fullName || user.userName || '',
+    avatarUrl: user.profile?.avatarUrl || null,
+    bio: user.profile?.bio || null,
+    locationName: user.profile?.locationName || null,
+    userRole: user.userRole || 'resident',
+    isOnline: !!user.profile?.is_online,
+    followersCount: Number(followersCount) || 0,
+    followingCount: Number(followingCount) || 0,
+    isFollowing: !!followRow,
+    memberSince: user.created_at || null,
+  };
+};
+
+export default { followUser, unfollowUser, getFollowers, getFollowing, isFollowing, discoverUsers, getUserPublicProfile };

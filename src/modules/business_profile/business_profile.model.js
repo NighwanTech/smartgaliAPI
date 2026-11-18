@@ -141,6 +141,80 @@ const BusinessProfile = sequelize.define(
       allowNull: false,
       defaultValue: true,
     },
+    // Enterprise Seller Onboarding & KYC Identity Columns
+    owner_name: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+    legal_entity_type: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: 'proprietorship',
+    },
+    pan_number: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    gstin: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    gst_exempt: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    sells_branded_goods: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    bank_account_name: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+    bank_account_number: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+    },
+    bank_ifsc: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    upi_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    verification_status: {
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    rejection_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    submitted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    reviewed_by: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+    },
+    reviewed_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    terms_accepted: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    terms_accepted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     ...commonFields,
   },
   {
