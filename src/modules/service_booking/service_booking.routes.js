@@ -1,6 +1,6 @@
 import express from 'express';
 import * as serviceBookingController from './service_booking.controller.js';
-import { authenticate, requireGlobalAdmin } from '../../middleware/auth.middleware.js';
+import { authenticate, optionalAuthenticate, requireGlobalAdmin } from '../../middleware/auth.middleware.js';
 import { validateBody } from '../../middleware/validation.middleware.js';
 import {
   createBookingSchema,
@@ -9,6 +9,10 @@ import {
   scheduleBookingSchema,
   startBookingSchema,
   transitionBookingSchema,
+  createRazorpayOrderSchema,
+  verifyRazorpayPaymentSchema,
+  payBookingSchema,
+  refundBookingSchema,
 } from './service_booking.validation.js';
 
 const router = express.Router();
@@ -19,6 +23,12 @@ const router = express.Router();
  *   name: ServiceBookings
  *   description: Enterprise Service Booking and Lifecycle State Machine APIs
  */
+
+// ── Razorpay Payment Gateway routes ──────────────────────────────────────────
+router.get('/razorpay/config', optionalAuthenticate, serviceBookingController.getRazorpayConfig);
+router.post('/razorpay/create-order', optionalAuthenticate, validateBody(createRazorpayOrderSchema), serviceBookingController.createRazorpayOrder);
+router.post('/razorpay/verify-payment', optionalAuthenticate, validateBody(verifyRazorpayPaymentSchema), serviceBookingController.verifyRazorpayPayment);
+router.post('/razorpay/webhook', serviceBookingController.handleRazorpayWebhook);
 
 // ── Resident Endpoints ────────────────────────────────────────────────────────
 
@@ -51,6 +61,10 @@ router.post('/:id/start', authenticate, validateBody(startBookingSchema), servic
 router.post('/:id/complete', authenticate, serviceBookingController.completeBooking);
 router.post('/:id/cancel', authenticate, validateBody(cancelBookingSchema), serviceBookingController.cancelBooking);
 router.put('/:id/transition', authenticate, validateBody(transitionBookingSchema), serviceBookingController.transitionBooking);
+
+// ── Payment & Refund Endpoints ───────────────────────────────────────────────
+router.post('/:id/pay', authenticate, validateBody(payBookingSchema), serviceBookingController.payBooking);
+router.post('/:id/refund', authenticate, validateBody(refundBookingSchema), serviceBookingController.refundBookingPayment);
 
 router.delete('/:id', authenticate, requireGlobalAdmin, serviceBookingController.deleteBooking);
 

@@ -1,6 +1,7 @@
 import { sanitizeBookingForParty } from './booking_privacy.utils.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import * as serviceBookingService from './service_booking.service.js';
+import * as razorpayService from './razorpay.service.js';
 import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
 
 export const createBooking = async (req, res, next) => {
@@ -225,3 +226,103 @@ export const getAvailableSlotsForListing = async (req, res, next) => {
     next(error);
   }
 };
+
+// ── Razorpay Payment Gateway Controller Methods ─────────────────────────────
+
+export const getRazorpayConfig = async (req, res) => {
+  try {
+    const keyId = razorpayService.getRazorpayKeyId();
+    return successResponse(res, 200, 'Razorpay configuration retrieved.', { key_id: keyId });
+  } catch (err) {
+    return errorResponse(res, 500, 'Failed to fetch Razorpay config.');
+  }
+};
+
+export const createRazorpayOrder = async (req, res) => {
+  try {
+    const rzpOrder = await serviceBookingService.createRazorpayOrderForService(req.body, req.user);
+    return successResponse(res, 200, 'Razorpay order created successfully.', rzpOrder);
+  } catch (err) {
+    return errorResponse(res, err.statusCode || 400, err.message || 'Failed to create Razorpay order.');
+  }
+};
+
+export const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { booking_id, razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_mode } = req.body;
+    const verification = razorpayService.verifyRazorpayPaymentSignature({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });
+
+    if (!verification.isValid) {
+      return errorResponse(res, 400, verification.message || 'Razorpay payment signature verification failed.');
+    }
+
+    let booking = null;
+    if (booking_id) {
+      booking = await serviceBookingService.confirmBookingPayment(
+        booking_id,
+        {
+          razorpay_order_id,
+          razorpay_payment_id,
+          razorpay_signature,
+          payment_mode: payment_mode || 'razorpay',
+        },
+        req.user
+      );
+    }
+
+    return successResponse(res, 200, 'Payment verified successfully.', {
+      verified: true,
+      booking_id: booking ? booking.id : (booking_id || null),
+      razorpay_payment_id,
+      is_sandbox: verification.is_sandbox || false,
+      booking,
+    });
+  } catch (err) {
+    return errorResponse(res, err.statusCode || 400, err.message || 'Payment verification failed.');
+  }
+};
+
+export const handleRazorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const rawBody = req.rawBody || req.body;
+
+    const isValid = razorpayService.verifyRazorpayWebhookSignature(rawBody, signature);
+    if (!isValid) {
+      return errorResponse(res, 400, 'Invalid Razorpay webhook signature.');
+    }
+
+    const event = typeof req.body === 'object' && !Buffer.isBuffer(req.body)
+      ? req.body
+      : JSON.parse(rawBody.toString('utf8'));
+
+    const result = await serviceBookingService.handleRazorpayWebhookEvent(event);
+    return successResponse(res, 200, 'Razorpay webhook processed successfully.', result);
+  } catch (err) {
+    console.error(`[Service Razorpay Webhook Error] ${err.message}`);
+    return errorResponse(res, 500, err.message || 'Webhook processing failed.');
+  }
+};
+
+export const payBooking = async (req, res) => {
+  try {
+    const updated = await serviceBookingService.confirmBookingPayment(req.params.id, req.body, req.user);
+    return successResponse(res, 200, 'Payment recorded successfully.', updated);
+  } catch (err) {
+    return errorResponse(res, err.statusCode || 400, err.message || 'Failed to record payment.');
+  }
+};
+
+export const refundBookingPayment = async (req, res) => {
+  try {
+    const updated = await serviceBookingService.refundBookingPayment(req.params.id, req.body, req.user);
+    return successResponse(res, 200, 'Refund processed successfully.', updated);
+  } catch (err) {
+    return errorResponse(res, err.statusCode || 400, err.message || 'Failed to process refund.');
+  }
+};
+

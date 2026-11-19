@@ -26,6 +26,11 @@ export const createBookingSchema = Joi.object({
   platform_fee: Joi.number().min(0).max(999999.99).allow(null).optional(),
   gst_amount: Joi.number().min(0).max(999999.99).allow(null).optional(),
   selected_addon_names: Joi.array().items(Joi.string().trim()).default([]),
+  payment_mode: Joi.string().valid('cod', 'pay_after_service', 'razorpay', 'upi', 'card', 'online', 'cash').optional(),
+  payment_status: Joi.string().valid('pending', 'paid').optional(),
+  razorpay_order_id: Joi.string().trim().max(100).allow(null, '').optional(),
+  razorpay_payment_id: Joi.string().trim().max(100).allow(null, '').optional(),
+  razorpay_signature: Joi.string().trim().max(255).allow(null, '').optional(),
 });
 
 export const cancelBookingSchema = Joi.object({
@@ -55,3 +60,40 @@ export const transitionBookingSchema = Joi.object({
   time_slot: Joi.string().trim().max(100).optional(),
   notes: Joi.string().trim().max(1000).allow(null, '').optional(),
 });
+
+export const createRazorpayOrderSchema = Joi.object({
+  amount: Joi.number().positive().optional(),
+  booking_id: Joi.alternatives().try(Joi.number().integer().positive(), Joi.string().trim()).optional(),
+  listing_id: Joi.number().integer().positive().optional(),
+  package_id: Joi.number().integer().positive().allow(null).optional(),
+  addon_ids: Joi.array().items(Joi.number().integer().positive()).optional(),
+  duration_hours: Joi.number().min(1).max(24).optional(),
+  material_charge: Joi.number().min(0).optional(),
+  discount_amount: Joi.number().min(0).optional(),
+  currency: Joi.string().trim().default('INR').optional(),
+  receipt: Joi.string().trim().max(50).allow('', null).optional(),
+  notes: Joi.object().optional(),
+}).or('amount', 'booking_id', 'listing_id');
+
+export const verifyRazorpayPaymentSchema = Joi.object({
+  booking_id: Joi.alternatives().try(Joi.number().integer().positive(), Joi.string().trim()).optional(),
+  razorpay_order_id: Joi.string().trim().required(),
+  razorpay_payment_id: Joi.string().trim().required(),
+  razorpay_signature: Joi.string().trim().allow('', null).optional(),
+  payment_mode: Joi.string().valid('razorpay', 'upi', 'card', 'online').default('razorpay').optional(),
+});
+
+export const payBookingSchema = Joi.object({
+  payment_mode: Joi.string().valid('razorpay', 'upi', 'card', 'online', 'cash', 'cod').default('razorpay').optional(),
+  razorpay_order_id: Joi.string().trim().allow('', null).optional(),
+  razorpay_payment_id: Joi.string().trim().allow('', null).optional(),
+  razorpay_signature: Joi.string().trim().allow('', null).optional(),
+  amount: Joi.number().positive().optional(),
+  notes: Joi.string().trim().max(500).allow('', null).optional(),
+});
+
+export const refundBookingSchema = Joi.object({
+  amount: Joi.number().positive().optional(),
+  reason: Joi.string().trim().max(500).allow('', null).optional(),
+});
+

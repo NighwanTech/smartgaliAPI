@@ -116,6 +116,7 @@ router.use('/service-provider-profile', serviceProviderProfileRoutes);
 router.use('/service-listing', serviceListingRoutes);
 router.use('/service-listings', serviceListingRoutes);
 router.use('/service-booking', serviceBookingRoutes);
+router.use('/service-bookings', serviceBookingRoutes);
 router.use('/service-review', serviceReviewRoutes);
 router.use('/societies', societiesRoutes);
 router.use('/society', societiesRoutes);

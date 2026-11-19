@@ -148,6 +148,49 @@ const ServiceBooking = sequelize.define('ServiceBooking', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  payment_mode: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    defaultValue: 'cod', // 'cod', 'pay_after_service', 'razorpay', 'upi', 'card', 'online', 'cash'
+  },
+  payment_status: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    defaultValue: 'pending', // 'pending', 'paid', 'completed', 'failed', 'refunded'
+  },
+  razorpay_order_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  razorpay_payment_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  razorpay_signature: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  paid_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  refund_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  refund_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: 0.00,
+  },
+  refund_status: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  refund_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   ...commonFields
 }, {
   timestamps: false,

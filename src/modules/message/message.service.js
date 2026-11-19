@@ -15,6 +15,7 @@ import { emitNotification, resolveDisplayName } from '../notification/notificati
 import { checkIdempotencyKey, storeIdempotencyKey } from '../../config/redis.js';
 import { auditMessageEdit, auditMessageDelete, auditMessageForward } from '../modules/../audit_log/audit_log.service.js';
 import { logger } from '../../utils/logger.js';
+import { normalizeMediaUrl } from '../../utils/mediaUrl.js';
 import { getIO } from '../../socket.js';
 import * as outboxService from '../outbox/outbox.service.js';
 import { publishOutboxEvent } from '../outbox/outbox.publisher.js';
@@ -187,10 +188,11 @@ export const sendMessage = async (messageData) => {
       }
     }
 
-    // Step 1: Create message
+    // Step 1: Create message (sanitize media_url to ensure canonical live origin)
+    const sanitizedMediaUrl = media_url ? normalizeMediaUrl(media_url) : null;
     newMessage = await Message.create({
       chat_id, sender_id, message, message_type,
-      media_url, media_metadata, reply_to,
+      media_url: sanitizedMediaUrl, media_metadata, reply_to,
       is_forwarded, location_lat, location_lng,
       idempotency_key: idempotency_key || null,
       created_by:      created_by ?? sender_id,

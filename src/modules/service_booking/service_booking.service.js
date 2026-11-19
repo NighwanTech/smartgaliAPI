@@ -22,6 +22,7 @@ import {
   coarsenCoordinate,
   sanitizeBookingForParty,
 } from './booking_privacy.utils.js';
+import * as razorpayService from './razorpay.service.js';
 
 /**
  * Creates a new booking with concurrency protection and doorstep safety PIN.
@@ -371,6 +372,10 @@ export const createBooking = async (bookingData, actorUser) => {
       coverage_snapshot: coverageSnapshot,
     };
 
+    const isPrepaid = Boolean(bookingData.razorpay_payment_id || bookingData.payment_status === 'paid');
+    const paymentMode = bookingData.payment_mode || (isPrepaid ? 'razorpay' : 'cod');
+    const paymentStatus = isPrepaid ? 'paid' : (bookingData.payment_status || 'pending');
+
     const booking = await ServiceBooking.create({
       coverage_snapshot: coverageSnapshot,
       listing_id: listing.id,
@@ -390,6 +395,12 @@ export const createBooking = async (bookingData, actorUser) => {
       doorstep_pin: doorstepPin,
       doorstep_pin_verified: false,
       price_snapshot: priceSnapshot,
+      payment_mode: paymentMode,
+      payment_status: paymentStatus,
+      razorpay_order_id: bookingData.razorpay_order_id || null,
+      razorpay_payment_id: bookingData.razorpay_payment_id || null,
+      razorpay_signature: bookingData.razorpay_signature || null,
+      paid_at: isPrepaid ? new Date() : null,
       created_by: actorId,
     }, { transaction: t });
 
@@ -403,6 +414,17 @@ export const createBooking = async (bookingData, actorUser) => {
         ? 'Booking automatically confirmed per provider operational auto-accept preferences.'
         : 'Booking requested by resident.',
     }, { transaction: t });
+
+    // If prepaid online via Razorpay, record payment confirmed timeline entry
+    if (isPrepaid && bookingData.razorpay_payment_id) {
+      await ServiceBookingTimeline.create({
+        booking_id: booking.id,
+        status: 'paid',
+        actor_id: actorId,
+        actor_role: 'resident',
+        notes: `Prepaid via Razorpay (${bookingData.razorpay_payment_id}). Amount: ₹${booking.amount}`,
+      }, { transaction: t });
+    }
 
     // Increment bookings count on listing
     await listing.increment('bookings_count', { by: 1, transaction: t });
@@ -1035,3 +1057,458 @@ export const getAvailableSlots = async (listingId, targetDate) => {
   const { getAvailableSlotsForDate } = await import('./service_duration.service.js');
   return await getAvailableSlotsForDate(listingId, targetDate);
 };
+
+/**
+ * Enterprise Booking Lookup: Finds booking by ID or human-readable reference (e.g. SG-SRV-1234)
+ */
+export const findBookingByIdOrRef = async (idOrRef, { transaction } = {}) => {
+  if (!idOrRef) return null;
+  const isNumeric = !isNaN(Number(idOrRef));
+  const where = { is_deleted: false };
+  if (isNumeric) {
+    where[Op.or] = [{ id: BigInt(idOrRef) }, { booking_reference: String(idOrRef) }];
+  } else {
+    where.booking_reference = String(idOrRef);
+  }
+
+  return await ServiceBooking.findOne({
+    ...(transaction ? { transaction } : {}),
+    where,
+    include: [
+      {
+        model: ServiceListing,
+        as: 'listing',
+        include: [
+          {
+            model: ServiceProviderProfile,
+            as: 'provider',
+            include: [{ model: User, as: 'user', attributes: ['userId', 'userName', 'phone', 'email'] }],
+          },
+        ],
+      },
+      {
+        model: ServiceProviderProfile,
+        as: 'provider',
+        include: [{ model: User, as: 'user', attributes: ['userId', 'userName', 'phone', 'email'] }],
+      },
+      {
+        model: User,
+        as: 'user',
+        attributes: ['userId', 'userName', 'phone', 'email'],
+      },
+      {
+        model: ServiceBookingTimeline,
+        as: 'timelines',
+      },
+    ],
+  });
+};
+
+/**
+ * Enterprise Service Razorpay Order Creation:
+ * Calculates authoritative price from database (existing booking or listing pricing engine),
+ * generates Razorpay order, and records tracking info.
+ */
+export const createRazorpayOrderForService = async ({
+  booking_id,
+  listing_id,
+  amount,
+  currency = 'INR',
+  receipt,
+  notes = {},
+  package_id,
+  addon_ids,
+  duration_hours,
+  material_charge,
+  discount_amount,
+}, actorUser = null) => {
+  let calculatedAmount = amount;
+  let targetBooking = null;
+
+  // 1. Authoritative calculation from existing booking if booking_id provided
+  if (booking_id) {
+    targetBooking = await findBookingByIdOrRef(booking_id);
+    if (!targetBooking) {
+      const err = new Error('Service booking not found for payment checkout.');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (targetBooking.payment_status === 'paid') {
+      const err = new Error('This service booking has already been paid.');
+      err.statusCode = 400;
+      throw err;
+    }
+    calculatedAmount = Number(targetBooking.amount || 0);
+    receipt = receipt || `rcpt_srv_${targetBooking.id}_${Date.now()}`;
+    notes = {
+      ...notes,
+      booking_id: String(targetBooking.id),
+      booking_reference: String(targetBooking.booking_reference || `SG-SRV-${targetBooking.id}`),
+      module: 'service_booking',
+    };
+  } else if (listing_id) {
+    // 2. Authoritative calculation from listing pricing if listing_id provided
+    const priceCalculation = await calculateAuthoritativeServicePrice({
+      listingId: listing_id,
+      packageId: package_id || null,
+      addonIds: addon_ids || [],
+      durationHours: duration_hours || 1,
+      materialCharge: material_charge || 0.00,
+      discountAmount: discount_amount || 0.00,
+    });
+    calculatedAmount = priceCalculation.customer_payable;
+    receipt = receipt || `rcpt_srv_lst_${listing_id}_${Date.now()}`;
+    notes = {
+      ...notes,
+      listing_id: String(listing_id),
+      module: 'service_booking_prepaid',
+    };
+  }
+
+  if (!calculatedAmount || Number(calculatedAmount) <= 0) {
+    const err = new Error('Valid payable amount is required to create a Razorpay payment order.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const rzpOrder = await razorpayService.createRazorpayOrder({
+    amount: calculatedAmount,
+    currency,
+    receipt,
+    notes,
+  });
+
+  // If this order is for an existing booking, attach razorpay_order_id to the booking immediately
+  if (targetBooking) {
+    await targetBooking.update({
+      razorpay_order_id: rzpOrder.id,
+      updatedAt: new Date(),
+    });
+  }
+
+  return {
+    ...rzpOrder,
+    booking_id: targetBooking ? targetBooking.id : null,
+    booking_reference: targetBooking ? targetBooking.booking_reference : null,
+  };
+};
+
+/**
+ * Enterprise Confirm Service Booking Payment:
+ * Marks booking payment_status = 'paid', creates timeline entry, and broadcasts real-time updates.
+ */
+export const confirmBookingPayment = async (
+  bookingIdOrRef,
+  { razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_mode = 'razorpay' },
+  actorUser = null
+) => {
+  const booking = await findBookingByIdOrRef(bookingIdOrRef);
+  if (!booking) {
+    const err = new Error('Service booking not found for payment confirmation.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Idempotency: If already paid, return populated booking without error
+  if (booking.payment_status === 'paid') {
+    return await getBookingById(booking.id);
+  }
+
+  const actorId = actorUser?.id || actorUser?.userId || booking.user_id || null;
+  const amountPaid = Number(booking.amount || 0);
+
+  // Execute in transaction
+  await sequelize.transaction(async (t) => {
+    await booking.update({
+      payment_status: 'paid',
+      payment_mode: payment_mode || 'razorpay',
+      razorpay_order_id: razorpay_order_id || booking.razorpay_order_id,
+      razorpay_payment_id: razorpay_payment_id || booking.razorpay_payment_id,
+      razorpay_signature: razorpay_signature || booking.razorpay_signature,
+      paid_at: new Date(),
+      updated_by: actorId,
+      updatedAt: new Date(),
+    }, { transaction: t });
+
+    // Timeline Entry
+    await ServiceBookingTimeline.create({
+      booking_id: booking.id,
+      status: 'paid',
+      actor_id: actorId,
+      actor_role: actorUser ? 'resident' : 'system',
+      notes: `Payment Confirmed: Paid ₹${amountPaid.toFixed(2)} via Razorpay (${razorpay_payment_id || 'online'}).`,
+    }, { transaction: t });
+  });
+
+  // Asynchronous notifications and socket broadcasts
+  setImmediate(async () => {
+    try {
+      const io = getIO();
+      const listingTitle = booking.listing?.title || 'Service';
+      const refCode = booking.booking_reference || `#${booking.id}`;
+
+      // Notify Provider
+      const providerUserId = booking.provider?.user_id || booking.listing?.provider?.user_id;
+      if (providerUserId) {
+        await emitNotification({
+          userId: providerUserId,
+          recipientId: providerUserId,
+          actorId,
+          type: 'booking_payment_received',
+          title: 'Payment Received via Razorpay',
+          message: `Received ₹${amountPaid.toFixed(2)} for booking ${refCode} ("${listingTitle}").`,
+          data: {
+            target: 'booking',
+            bookingId: Number(booking.id),
+            bookingReference: refCode,
+            amount: amountPaid,
+            paymentId: razorpay_payment_id,
+            isProvider: true,
+          },
+          preferenceKey: 'booking_requests',
+          sendPush: true,
+        });
+
+        if (io) {
+          const payPayload = {
+            id: Number(booking.id),
+            bookingId: Number(booking.id),
+            bookingReference: refCode,
+            payment_status: 'paid',
+            payment_mode: payment_mode || 'razorpay',
+            amount: amountPaid,
+            razorpay_payment_id,
+          };
+          io.to(`user:${providerUserId}`).emit('booking_payment_received', payPayload);
+          io.to(`user_${providerUserId}`).emit('booking_payment_received', payPayload);
+          io.to(`user:${providerUserId}`).emit('booking:payment_received', payPayload);
+          io.to(`user_${providerUserId}`).emit('booking:payment_received', payPayload);
+        }
+      }
+
+      // Notify Resident / Customer
+      if (booking.user_id) {
+        await emitNotification({
+          userId: booking.user_id,
+          recipientId: booking.user_id,
+          actorId,
+          type: 'booking_payment_confirmed',
+          title: 'Payment Confirmed',
+          message: `Your payment of ₹${amountPaid.toFixed(2)} for ${refCode} was successful via Razorpay.`,
+          data: {
+            target: 'booking',
+            bookingId: Number(booking.id),
+            bookingReference: refCode,
+            amount: amountPaid,
+            paymentId: razorpay_payment_id,
+            isProvider: false,
+          },
+          preferenceKey: 'booking_updates',
+          sendPush: true,
+        });
+
+        if (io) {
+          const custPayload = {
+            id: Number(booking.id),
+            bookingId: Number(booking.id),
+            bookingReference: refCode,
+            payment_status: 'paid',
+            payment_mode: payment_mode || 'razorpay',
+            amount: amountPaid,
+            razorpay_payment_id,
+          };
+          io.to(`user:${booking.user_id}`).emit('booking_payment_confirmed', custPayload);
+          io.to(`user_${booking.user_id}`).emit('booking_payment_confirmed', custPayload);
+          io.to(`user:${booking.user_id}`).emit('booking:payment_confirmed', custPayload);
+          io.to(`user_${booking.user_id}`).emit('booking:payment_confirmed', custPayload);
+        }
+      }
+    } catch (notifErr) {
+      logger.error('BOOKING_PAYMENT_NOTIF', notifErr.message);
+    }
+  });
+
+  return await getBookingById(booking.id);
+};
+
+/**
+ * Enterprise Service Razorpay Webhook Event Processor:
+ * Listens to async Razorpay events (payment.captured, order.paid, payment.failed, refund.processed)
+ * Guarantees zero dropped payment state even if mobile app disconnects.
+ */
+export const handleRazorpayWebhookEvent = async (event) => {
+  if (!event || !event.event) {
+    throw new Error('Invalid Razorpay webhook payload.');
+  }
+
+  const eventName = event.event;
+  console.log(`[Service Razorpay Webhook] Processing event: ${eventName}`);
+
+  if (eventName === 'payment.captured' || eventName === 'order.paid') {
+    const payment = event.payload?.payment?.entity;
+    const rzpOrderId = payment?.order_id || event.payload?.order?.entity?.id;
+    const rzpPaymentId = payment?.id;
+    const bookingIdFromNotes = payment?.notes?.booking_id || event.payload?.order?.entity?.notes?.booking_id;
+    const bookingRefFromNotes = payment?.notes?.booking_reference || event.payload?.order?.entity?.notes?.booking_reference;
+
+    if (!rzpOrderId && !rzpPaymentId && !bookingIdFromNotes && !bookingRefFromNotes) {
+      return { handled: false, message: 'Missing order_id, payment_id, or booking_id in webhook payload' };
+    }
+
+    const whereConditions = [];
+    if (rzpOrderId) whereConditions.push({ razorpay_order_id: rzpOrderId });
+    if (rzpPaymentId) whereConditions.push({ razorpay_payment_id: rzpPaymentId });
+    if (bookingIdFromNotes && !isNaN(Number(bookingIdFromNotes))) whereConditions.push({ id: BigInt(bookingIdFromNotes) });
+    if (bookingRefFromNotes) whereConditions.push({ booking_reference: String(bookingRefFromNotes) });
+
+    const booking = await ServiceBooking.findOne({
+      where: {
+        is_deleted: false,
+        [Op.or]: whereConditions,
+      },
+    });
+
+    if (!booking) {
+      console.warn(`[Service Razorpay Webhook] No matching booking found for rzpOrderId: ${rzpOrderId}, rzpPaymentId: ${rzpPaymentId}`);
+      return { handled: false, message: 'Service booking not found for webhook event.' };
+    }
+
+    if (String(booking.payment_status).toLowerCase() !== 'paid') {
+      await confirmBookingPayment(booking.id, {
+        razorpay_order_id: rzpOrderId || booking.razorpay_order_id,
+        razorpay_payment_id: rzpPaymentId || booking.razorpay_payment_id,
+        razorpay_signature: 'webhook_verified',
+        payment_mode: 'razorpay',
+      });
+      console.log(`[Service Razorpay Webhook] Successfully confirmed payment for booking #${booking.id}`);
+    }
+
+    return { handled: true, event: eventName, booking_id: booking.id, payment_status: 'paid' };
+  }
+
+  if (eventName === 'payment.failed') {
+    const payment = event.payload?.payment?.entity;
+    const rzpOrderId = payment?.order_id;
+    const rzpPaymentId = payment?.id;
+    const bookingIdFromNotes = payment?.notes?.booking_id;
+
+    const whereConditions = [];
+    if (rzpOrderId) whereConditions.push({ razorpay_order_id: rzpOrderId });
+    if (rzpPaymentId) whereConditions.push({ razorpay_payment_id: rzpPaymentId });
+    if (bookingIdFromNotes && !isNaN(Number(bookingIdFromNotes))) whereConditions.push({ id: BigInt(bookingIdFromNotes) });
+
+    if (whereConditions.length > 0) {
+      const booking = await ServiceBooking.findOne({
+        where: {
+          is_deleted: false,
+          [Op.or]: whereConditions,
+        },
+      });
+
+      if (booking) {
+        await booking.update({
+          payment_status: 'failed',
+          razorpay_payment_id: rzpPaymentId || booking.razorpay_payment_id,
+          updatedAt: new Date(),
+        });
+        await ServiceBookingTimeline.create({
+          booking_id: booking.id,
+          status: 'payment_failed',
+          actor_role: 'system',
+          notes: `Payment Failed via Razorpay: ${payment?.error_description || 'Transaction unsuccessful'}`,
+        });
+        return { handled: true, event: eventName, booking_id: booking.id, payment_status: 'failed' };
+      }
+    }
+  }
+
+  if (eventName === 'refund.processed') {
+    const refund = event.payload?.refund?.entity;
+    const rzpPaymentId = refund?.payment_id;
+
+    if (rzpPaymentId) {
+      const booking = await ServiceBooking.findOne({
+        where: { razorpay_payment_id: rzpPaymentId, is_deleted: false },
+      });
+      if (booking) {
+        await booking.update({
+          payment_status: 'refunded',
+          refund_id: refund.id,
+          refund_amount: refund.amount ? (Number(refund.amount) / 100).toFixed(2) : booking.amount,
+          refund_status: 'processed',
+          updatedAt: new Date(),
+        });
+        await ServiceBookingTimeline.create({
+          booking_id: booking.id,
+          status: 'refunded',
+          actor_role: 'system',
+          notes: `Refund Processed via Razorpay (${refund.id}). Amount: ₹${(Number(refund.amount) / 100).toFixed(2)}`,
+        });
+        return { handled: true, event: eventName, booking_id: booking.id, payment_status: 'refunded' };
+      }
+    }
+  }
+
+  return { handled: true, event: eventName, message: 'Event acknowledged' };
+};
+
+/**
+ * Enterprise Service Refund API:
+ * Triggers a refund for a paid service booking back to customer's source account.
+ */
+export const refundBookingPayment = async (bookingIdOrRef, { amount, reason }, actorUser = null) => {
+  const booking = await findBookingByIdOrRef(bookingIdOrRef);
+  if (!booking) {
+    const err = new Error('Service booking not found for refund.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (booking.payment_status !== 'paid' && !booking.razorpay_payment_id) {
+    const err = new Error('Only paid bookings with a valid Razorpay payment ID can be refunded.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const refundAmount = amount ? Number(amount) : Number(booking.amount || 0);
+  if (refundAmount <= 0) {
+    const err = new Error('Refund amount must be greater than zero.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const rzpRefund = await razorpayService.refundRazorpayPayment({
+    paymentId: booking.razorpay_payment_id,
+    amount: refundAmount,
+    notes: {
+      booking_id: String(booking.id),
+      booking_reference: String(booking.booking_reference || booking.id),
+      reason: reason || 'Customer requested refund',
+    },
+  });
+
+  const actorId = actorUser?.id || actorUser?.userId || null;
+
+  await sequelize.transaction(async (t) => {
+    await booking.update({
+      payment_status: 'refunded',
+      refund_id: rzpRefund.id,
+      refund_amount: refundAmount,
+      refund_status: rzpRefund.status || 'processed',
+      refund_reason: reason || null,
+      updated_by: actorId,
+      updatedAt: new Date(),
+    }, { transaction: t });
+
+    await ServiceBookingTimeline.create({
+      booking_id: booking.id,
+      status: 'refunded',
+      actor_id: actorId,
+      actor_role: actorUser ? 'admin' : 'system',
+      notes: `Refund Processed: ₹${refundAmount.toFixed(2)} refunded back to source via Razorpay (${rzpRefund.id}). Reason: ${reason || 'Service refund'}`,
+    }, { transaction: t });
+  });
+
+  return await getBookingById(booking.id);
+};
+
