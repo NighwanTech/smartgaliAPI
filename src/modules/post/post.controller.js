@@ -288,7 +288,8 @@ export const unlike = async (req, res, next) => {
  */
 export const comment = async (req, res, next) => {
   try {
-    const result = await addComment(req.user.id, req.params.id, req.body?.content, req.correlationId);
+    const parentId = req.body?.parent_id ?? req.body?.parentId ?? null;
+    const result = await addComment(req.user.id, req.params.id, req.body?.content, req.correlationId, parentId);
     return successResponse(res, 201, 'Comment added.', result);
   } catch (err) {
     if (err instanceof CommentError) return errorResponse(res, err.statusCode, err.message);

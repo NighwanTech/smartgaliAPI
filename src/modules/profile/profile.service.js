@@ -14,6 +14,7 @@ import PrivacySetting from './privacy_setting.model.js';
 import SupportTicket from './support_ticket.model.js';
 import DataExportRequest from './data_export_request.model.js';
 import * as userAddressService from '../user_address/user_address.service.js';
+import { sendSupportTicketEmail } from '../../utils/emailService.js';
 
 const SALT_ROUNDS = 10;
 
@@ -37,11 +38,15 @@ export const pendingExportWhere = (userId) => ({
 // ─────────────────────────────────────────────────────────────
 const serializeProfile = (user) => {
   const profile = user.profile || null;
+  const resolvedName = profile?.fullName?.trim() || user.userName?.trim() || 'SmartGalli User';
   return {
     id: user.userId,
-    fullName: profile?.fullName || user.userName || 'SmartGalli User',
+    name: resolvedName,
+    fullName: resolvedName,
+    userName: user.userName || null,
     email: user.email || null,
     phone: user.phone || null,
+    mobile: user.phone || null,
     role: user.userRole || 'resident',
     isActive: user.status === 'active',
     status: user.status,
@@ -107,7 +112,34 @@ export const getMyProfile = async (userId) => {
   // password excluded above but we still need hasPassword flag — fetch minimally
   const pwdRow = await User.findByPk(userId, { attributes: ['password'] });
   user.password = pwdRow?.password || null;
-  return serializeProfile(user);
+  const data = serializeProfile(user);
+
+  // If locationName is empty in profile, fallback to default UserAddress or Society from DB
+  if (!data.locationName) {
+    try {
+      const defaultAddr = await UserAddress.findOne({
+        where: { user_id: userId, is_default: true, is_deleted: false, is_active: true },
+      });
+      if (defaultAddr) {
+        data.locationName = defaultAddr.city 
+          ? (defaultAddr.landmark || defaultAddr.street ? `${defaultAddr.landmark || defaultAddr.street}, ${defaultAddr.city}` : defaultAddr.city)
+          : defaultAddr.full_address;
+        data.latitude = defaultAddr.latitude ?? data.latitude;
+        data.longitude = defaultAddr.longitude ?? data.longitude;
+      } else {
+        const socMember = await SocietyMember.findOne({
+          where: { user_id: userId, is_deleted: false },
+          include: [{ model: SocietyProfile, as: 'society', attributes: ['name', 'city', 'locality'] }],
+        });
+        if (socMember?.society) {
+          data.locationName = socMember.society.locality && socMember.society.city
+            ? `${socMember.society.name}, ${socMember.society.city}`
+            : socMember.society.name;
+        }
+      }
+    } catch (_) {}
+  }
+  return data;
 };
 
 export const updateMyProfile = async (userId, data) => {
@@ -293,6 +325,23 @@ export const createSupportTicket = async (userId, data) => {
       created_by: userId,
     }, { transaction: t });
     await t.commit();
+
+    // Trigger enterprise email notification via real Nodemailer in the background
+    sendSupportTicketEmail({ ticket, user: owner }).catch((emailErr) => {
+      console.error(`[SUPPORT TICKET EMAIL ERROR] Failed to dispatch email for ticket #${ticket.id}:`, emailErr.message);
+    });
+
+    // Also persist audit record in EmailNotification
+    try {
+      await EmailNotification.create({
+        user_id: userId,
+        subject: `[Support Ticket #${ticket.id}] ${data.category}`,
+        body: data.description,
+        status: 'sent',
+        created_by: userId,
+      });
+    } catch (_) {}
+
     return {
       id: ticket.id,
       category: ticket.category,

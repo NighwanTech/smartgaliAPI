@@ -998,8 +998,18 @@ export const createOrder = async (payload, currentUser) => {
         if (created?.business?.userId) {
           io.to(`user:${created.business.userId}`).emit('order:new_order', formatted);
           io.to(`user_${created.business.userId}`).emit('order:new_order', formatted);
+          io.to(`user:${created.business.userId}`).emit('notification:new', {
+            id: `notif_${Date.now()}`,
+            type: 'order',
+            title: 'New Order Received',
+            message: `New order #${formatted.order_number || formatted.orderNumber} received from ${formatted.customer_name || formatted.customerName}!`,
+            targetId: String(formatted.id),
+            order: formatted,
+            timestamp: new Date().toISOString(),
+          });
         }
         io.to(`business_${order.business_id}`).emit('order:new_order', formatted);
+        io.to(`business:${order.business_id}`).emit('order:new_order', formatted);
       }
     } catch (e) {
       console.warn('[Socket Order Error]', e.message);
@@ -1290,12 +1300,22 @@ export const updateOrderStatus = async (idOrNumber, nextStatus, options = {}) =>
         if (refreshed?.customer_user_id) {
           io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
           io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+          io.to(`user:${refreshed.customer_user_id}`).emit('notification:new', {
+            id: `notif_${Date.now()}`,
+            type: 'order',
+            title: 'Order Status Update',
+            message: `Your order #${formatted.order_number || formatted.orderNumber} is now ${formatted.status}!`,
+            targetId: String(formatted.id),
+            order: formatted,
+            timestamp: new Date().toISOString(),
+          });
         }
         if (refreshed?.business?.userId) {
           io.to(`user:${refreshed.business.userId}`).emit('order:status_updated', formatted);
           io.to(`user_${refreshed.business.userId}`).emit('order:status_updated', formatted);
         }
         io.to(`business_${refreshed.business_id}`).emit('order:status_updated', formatted);
+        io.to(`business:${refreshed.business_id}`).emit('order:status_updated', formatted);
       }
     } catch (e) {
       console.warn('[Socket Order Status Error]', e.message);
@@ -1500,9 +1520,19 @@ export const refundOrderPayment = async (idOrNumber, { amount, reason, actorId }
 
   try {
     const io = getIO();
-    if (io && refreshed?.customer_user_id) {
-      io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
-      io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+    if (io) {
+      if (refreshed?.customer_user_id) {
+        io.to(`user:${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+        io.to(`user_${refreshed.customer_user_id}`).emit('order:status_updated', formatted);
+      }
+      if (refreshed?.business?.userId) {
+        io.to(`user:${refreshed.business.userId}`).emit('order:status_updated', formatted);
+        io.to(`user_${refreshed.business.userId}`).emit('order:status_updated', formatted);
+      }
+      if (refreshed?.business_id) {
+        io.to(`business_${refreshed.business_id}`).emit('order:status_updated', formatted);
+        io.to(`business:${refreshed.business_id}`).emit('order:status_updated', formatted);
+      }
     }
   } catch (_) {}
 

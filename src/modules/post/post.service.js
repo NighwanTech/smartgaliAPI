@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Post Service - Scalability Hardening Phase 10
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * POST_CREATED is now fully transactional:
@@ -18,6 +18,9 @@ import CommunityMember from '../communityMember/communityMember.model.js';
 import { createEvent } from '../outbox/outbox.service.js';
 import { OUTBOX_EVENT_TYPES, OUTBOX_AGGREGATE_TYPES } from '../outbox/outbox.events.js';
 import { logger } from '../../utils/logger.js';
+import { getIO } from '../../socket.js';
+import { toNormalizedIsoString } from '../../utils/date.util.js';
+import { normalizeMediaUrl } from '../../utils/mediaUrl.js';
 import {
   postsCreatedTotal,
   postsCreationFailedTotal,
@@ -160,7 +163,27 @@ export const createPost = async (authorId, data, correlationId) => {
   postsCreatedTotal.inc({ post_type: effectiveType });
   logger.info('POST', 'post_created', { correlationId, postId: Number(post.id) });
 
-  return serializePost(post, null, linkedMediaFiles, community);
+  let authorUser = null;
+  try {
+    authorUser = await User.findByPk(authorId, {
+      attributes: SAFE_USER_ATTRS,
+      include: [{ model: UserProfile, as: 'profile', attributes: SAFE_PROFILE_ATTRS, required: false }],
+    });
+  } catch (_) {}
+
+  const serialized = serializePost(post, authorUser, linkedMediaFiles, community);
+
+  // Enterprise real-time broadcast to all connected clients
+  try {
+    const io = getIO();
+    if (io) {
+      io.emit('post:created', serialized);
+    }
+  } catch (sockErr) {
+    logger.warn('POST', 'socket_emit_failed', { error: sockErr.message });
+  }
+
+  return serialized;
 };
 
 /**
@@ -271,39 +294,47 @@ export const getPostById = async (postId) => {
  * Serialize a post row into a safe API response.
  * Never returns email, password, phone, or tokens.
  */
-export const serializePost = (post, author, media = [], community = post.community) => ({
-  id: Number(post.id),
-  content: post.content || null,
-  postType: post.type || 'text',
-  visibility: post.visibility || 'public',
-  isPinned: Boolean(post.is_pinned),
-  commentsDisabled: Boolean(post.comments_disabled),
-  isEdited: Boolean(post.is_edited),
-  locationName: post.location_name || null,
-  mediaUrl: post.media_url || (media.length > 0 ? media[0].url : null),
-  mediaUrls: media.map((m) => ({ id: m.id ? Number(m.id) : null, url: m.url, type: m.type })),
-  likeCount: Number(post.likes_count ?? 0),
-  commentCount: Number(post.comments_count ?? 0),
-  shareCount: Number(post.shares_count ?? 0),
-  createdAt: post.created_at instanceof Date
-    ? post.created_at.toISOString()
-    : (post.created_at && post.created_at !== 'null')
-      ? new Date(post.created_at).toISOString()
-      : null,
-  communityId: post.community_id ? Number(post.community_id) : null,
-  community: community ? {
-    id: Number(community.communityId),
-    name: community.communityName,
-    coverImage: community.cover_image || null,
-    isPrivate: Boolean(community.is_private),
-  } : null,
-  author: author ? {
-    userId: Number(author.userId),
-    userName: author.userName || null,
-    fullName: author.profile?.fullName || author.userName || null,
-    avatarUrl: author.profile?.avatarUrl || null,
-  } : null,
-});
+export const serializePost = (post, author, media = [], community = post.community) => {
+  const primaryMedia = post.media_url || (media.length > 0 ? media[0].url : null);
+  const normalizedPrimaryMedia = normalizeMediaUrl(primaryMedia);
+  const effectiveMediaList = media.length > 0
+    ? media
+    : (post.media_url ? [{ id: null, url: post.media_url, type: post.type === 'video' ? 'video' : 'image' }] : []);
+
+  return {
+    id: Number(post.id),
+    content: post.content || null,
+    postType: post.type || 'text',
+    visibility: post.visibility || 'public',
+    isPinned: Boolean(post.is_pinned),
+    commentsDisabled: Boolean(post.comments_disabled),
+    isEdited: Boolean(post.is_edited),
+    locationName: post.location_name || null,
+    mediaUrl: normalizedPrimaryMedia || null,
+    mediaUrls: effectiveMediaList.map((m) => ({
+      id: m.id ? Number(m.id) : null,
+      url: normalizeMediaUrl(m.url),
+      type: m.type,
+    })),
+    likeCount: Number(post.likes_count ?? 0),
+    commentCount: Number(post.comments_count ?? 0),
+    shareCount: Number(post.shares_count ?? 0),
+    createdAt: toNormalizedIsoString(post.created_at),
+    communityId: post.community_id ? Number(post.community_id) : null,
+    community: community ? {
+      id: Number(community.communityId),
+      name: community.communityName,
+      coverImage: normalizeMediaUrl(community.cover_image) || null,
+      isPrivate: Boolean(community.is_private),
+    } : null,
+    author: author ? {
+      userId: Number(author.userId),
+      userName: author.userName || null,
+      fullName: author.profile?.fullName || author.userName || null,
+      avatarUrl: normalizeMediaUrl(author.profile?.avatarUrl) || null,
+    } : null,
+  };
+};
 
 export default {
   createPost,

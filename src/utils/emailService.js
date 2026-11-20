@@ -186,3 +186,188 @@ export const sendOtpEmail = async (toEmail, otp) => {
   console.log(`[EMAIL OTP] Provider accepted message ${info.messageId}`);
   return info;
 };
+
+/**
+ * Sends an enterprise support ticket email notification.
+ * Dispatches:
+ *   1. Notification to the official support desk (EMAIL_USER / support@nighwantech.com)
+ *   2. Optional receipt email to the user who raised the ticket (if email present)
+ *
+ * @param {Object} params
+ * @param {Object} params.ticket - The newly created SupportTicket record
+ * @param {Object} params.user   - The User record of the ticket creator
+ */
+export const sendSupportTicketEmail = async ({ ticket, user }) => {
+  const supportEmail = process.env.EMAIL_USER || 'support@nighwantech.com';
+  const userName = user?.userName || user?.fullName || 'SmartGalli User';
+  const userPhone = user?.phone || 'Not provided';
+  const userEmail = user?.email || null;
+  const ticketCategory = ticket?.category || 'General Support';
+  const ticketDescription = ticket?.description || 'No description provided';
+  const ticketId = ticket?.id || 'N/A';
+  const createdAt = ticket?.created_at ? new Date(ticket.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  // Lazy-init transporter
+  if (!transporter) {
+    transporter = createTransporter();
+  }
+  const t = transporter;
+
+  // 1. Dispatch Email to Support Desk
+  const adminMailOptions = {
+    from: `"SmartGalli HelpDesk" <${supportEmail}>`,
+    to: supportEmail,
+    replyTo: userEmail || supportEmail,
+    subject: `🎫 [New Support Ticket #${ticketId}] ${ticketCategory} - ${userName}`,
+    text: `New Support Ticket #${ticketId}\nCategory: ${ticketCategory}\nUser: ${userName} (Phone: ${userPhone}, Email: ${userEmail || 'N/A'})\nTime: ${createdAt}\n\nDescription:\n${ticketDescription}`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>New Support Ticket #${ticketId}</title>
+      </head>
+      <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:30px 15px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+                <!-- Header -->
+                <tr>
+                  <td style="background:linear-gradient(135deg, #111827 0%, #1F2937 100%);padding:24px 32px;border-bottom:3px solid #FF6B00;">
+                    <table width="100%">
+                      <tr>
+                        <td>
+                          <h2 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">Smart<span style="color:#FF6B00;">Galli</span> HelpDesk</h2>
+                          <p style="margin:4px 0 0;color:#9CA3AF;font-size:12px;">New User Support Request Received</p>
+                        </td>
+                        <td align="right">
+                          <span style="background:#FF6B00;color:#ffffff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;">Ticket #${ticketId}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Body -->
+                <tr>
+                  <td style="padding:28px 32px;">
+                    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+                      <table width="100%" style="font-size:14px;color:#374151;">
+                        <tr>
+                          <td style="padding:6px 0;color:#6B7280;width:120px;"><strong>Category:</strong></td>
+                          <td style="padding:6px 0;font-weight:600;color:#111827;">${ticketCategory}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:6px 0;color:#6B7280;"><strong>User Name:</strong></td>
+                          <td style="padding:6px 0;font-weight:600;color:#111827;">${userName}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:6px 0;color:#6B7280;"><strong>Phone:</strong></td>
+                          <td style="padding:6px 0;"><a href="tel:${userPhone}" style="color:#2563EB;text-decoration:none;">${userPhone}</a></td>
+                        </tr>
+                        <tr>
+                          <td style="padding:6px 0;color:#6B7280;"><strong>Email:</strong></td>
+                          <td style="padding:6px 0;">${userEmail ? `<a href="mailto:${userEmail}" style="color:#2563EB;text-decoration:none;">${userEmail}</a>` : '<span style="color:#9CA3AF;">None</span>'}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:6px 0;color:#6B7280;"><strong>Submitted:</strong></td>
+                          <td style="padding:6px 0;color:#4B5563;">${createdAt}</td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <h3 style="margin:0 0 10px;font-size:15px;color:#111827;">Issue Description:</h3>
+                    <div style="background:#ffffff;border-left:4px solid #10B981;border-top:1px solid #E5E7EB;border-right:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;border-radius:4px;padding:16px 18px;color:#1F2937;font-size:14px;line-height:1.6;white-space:pre-wrap;">${ticketDescription}</div>
+
+                    <div style="margin-top:24px;padding-top:16px;border-top:1px dashed #E5E7EB;font-size:12px;color:#6B7280;">
+                      <em>💡 Tip: You can reply directly to this email to contact the user at their registered email (${userEmail || 'none'}).</em>
+                    </div>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="background:#F9FAFB;padding:16px 32px;border-top:1px solid #E5E7EB;text-align:center;font-size:12px;color:#9CA3AF;">
+                    SmartGalli Platform Support · Auto-generated notification
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+  };
+
+  const results = {};
+  try {
+    results.adminMail = await t.sendMail(adminMailOptions);
+    console.log(`[SUPPORT TICKET] Support desk notification email sent for ticket #${ticketId}: ${results.adminMail.messageId}`);
+  } catch (err) {
+    console.error(`[SUPPORT TICKET] Failed to send support desk email for ticket #${ticketId}:`, err.message);
+  }
+
+  // 2. Dispatch Confirmation Email to User (if user has an email)
+  if (userEmail && userEmail.includes('@')) {
+    const userMailOptions = {
+      from: `"SmartGalli Support" <${supportEmail}>`,
+      to: userEmail,
+      subject: `✅ Ticket #${ticketId} Received - SmartGalli Support`,
+      text: `Hello ${userName},\n\nWe have received your support request (Ticket #${ticketId}) regarding "${ticketCategory}".\n\nOur team is reviewing your message and will respond as soon as possible.\n\nDescription:\n${ticketDescription}\n\nThank you,\nSmartGalli Support Team`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        </head>
+        <body style="margin:0;padding:0;background:#f9fafb;font-family:'Segoe UI',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 15px;">
+            <tr>
+              <td align="center">
+                <table width="540" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;">
+                  <tr>
+                    <td style="background:#10B981;padding:20px 28px;text-align:center;color:#ffffff;">
+                      <h2 style="margin:0;font-size:20px;font-weight:700;">Support Request Received</h2>
+                      <p style="margin:4px 0 0;font-size:13px;opacity:0.9;">Ticket #${ticketId}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:28px;">
+                      <p style="margin:0 0 16px;color:#1F2937;font-size:15px;">Hi <strong>${userName}</strong>,</p>
+                      <p style="margin:0 0 20px;color:#4B5563;font-size:14px;line-height:1.6;">
+                        Thank you for reaching out. We have registered your support ticket under category <strong>${ticketCategory}</strong>. Our team is actively reviewing your query and will assist you shortly.
+                      </p>
+                      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:#374151;">
+                        <strong>Your Message:</strong><br/>
+                        <span style="color:#6B7280;white-space:pre-wrap;">${ticketDescription}</span>
+                      </div>
+                      <p style="margin:0;color:#9CA3AF;font-size:12px;">
+                        Need urgent assistance? You can also reach us via the in-app WhatsApp support chat.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#F3F4F6;padding:12px;text-align:center;font-size:12px;color:#6B7280;">
+                      © ${new Date().getFullYear()} SmartGalli · All rights reserved
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+    };
+    try {
+      results.userMail = await t.sendMail(userMailOptions);
+      console.log(`[SUPPORT TICKET] User confirmation email sent for ticket #${ticketId}: ${results.userMail.messageId}`);
+    } catch (err) {
+      console.error(`[SUPPORT TICKET] Failed to send user confirmation email for ticket #${ticketId}:`, err.message);
+    }
+  }
+
+  return results;
+};

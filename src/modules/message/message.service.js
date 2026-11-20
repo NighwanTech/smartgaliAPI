@@ -285,6 +285,13 @@ export const sendMessage = async (messageData) => {
 
       // Broadcast to active room members immediately
       io.to(`chat:${chat_id}`).emit('chat:message', plainMsg);
+
+      // Enterprise: Also broadcast directly to participants' individual user rooms so
+      // unread badges, bottom navigation counters, and conversation lists update live
+      for (const p of otherParticipants) {
+        io.to(`user:${p.user_id}`).emit('chat:message', plainMsg);
+        io.to(`user_${p.user_id}`).emit('chat:message', plainMsg);
+      }
     }
   } catch (socketErr) {
     logger.warn('MESSAGE', 'direct_socket_broadcast_failed', { chatId: chat_id, error: socketErr.message });

@@ -49,6 +49,28 @@ const handleMessageCreated = async (event, context = {}) => {
       createdAt: event.created_at,
     });
     logger.debug('OUTBOX', 'socket_broadcast_emitted', { chatId, messageId });
+    try {
+      const ChatParticipant = (await import('../chat/chat_participant.model.js')).default;
+      const participants = await ChatParticipant.findAll({
+        where: { chat_id: chatId, is_deleted: false },
+        attributes: ['user_id'],
+      });
+      for (const p of participants) {
+        if (Number(p.user_id) !== Number(senderId)) {
+          const payload = {
+            messageId,
+            chatId,
+            senderId,
+            senderName,
+            content,
+            messageType,
+            createdAt: event.created_at,
+          };
+          io.to(`user:${p.user_id}`).emit('chat:message', payload);
+          io.to(`user_${p.user_id}`).emit('chat:message', payload);
+        }
+      }
+    } catch (_) {}
   }
 
   await processorDeps.handleMessageCreatedPush(context, {

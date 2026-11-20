@@ -133,7 +133,13 @@ app.use('/uploads', express.static(env.uploadsPath, {
   maxAge: env.isProduction ? '1d' : 0,
   setHeaders: (res, filePath) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = res.req?.headers?.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
     res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);

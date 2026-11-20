@@ -56,10 +56,10 @@ export const follow = async (req, res, next) => {
  */
 export const followers = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.query.userId ? Number(req.query.userId) : req.user.id;
     const { page, limit } = req.query;
 
-    const result = await getFollowers(userId, { page, limit });
+    const result = await getFollowers(userId, { page, limit, currentUserId: req.user.id });
     return successResponse(res, 200, 'Followers fetched successfully.', result);
   } catch (error) {
     next(error);
@@ -71,10 +71,10 @@ export const followers = async (req, res, next) => {
  */
 export const following = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.query.userId ? Number(req.query.userId) : req.user.id;
     const { page, limit } = req.query;
 
-    const result = await getFollowing(userId, { page, limit });
+    const result = await getFollowing(userId, { page, limit, currentUserId: req.user.id });
     return successResponse(res, 200, 'Following fetched successfully.', result);
   } catch (error) {
     next(error);

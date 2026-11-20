@@ -1,4 +1,4 @@
-﻿import { errorResponse } from '../utils/response.js';
+import { errorResponse } from '../utils/response.js';
 import env from '../config/env.js';
 import multer from 'multer';
 
@@ -43,8 +43,9 @@ export const errorHandler = (err, req, res, next) => {
     return errorResponse(res, 400, err.message);
   }
 
-  // Never leak stack traces or internal details to clients
-  return errorResponse(res, statusCode, message);
+  // Pass field errors if attached to error object
+  const errors = err.errors || (err.field ? { field: err.field, message: err.message } : null);
+  return errorResponse(res, statusCode, message, errors);
 };
 
 /**

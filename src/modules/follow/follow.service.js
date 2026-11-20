@@ -187,7 +187,7 @@ export const followUser = async (followerId, followingId, correlationId) => {
   return {
     followId: Number(follow.id),
     followingId: Number(followingId),
-    message: `You are now following ${followerName || 'this user'}.`,
+    message: 'You are now following this user.',
   };
 };
 
@@ -237,10 +237,11 @@ export const unfollowUser = async (followerId, followingId, correlationId) => {
  * @param {number} userId — the user whose followers to fetch
  * @param {object} pagination — { page, limit }
  */
-export const getFollowers = async (userId, { page = 1, limit = 20 } = {}) => {
+export const getFollowers = async (userId, { page = 1, limit = 20, currentUserId } = {}) => {
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
   const offset = (safePage - 1) * safeLimit;
+  const viewerId = currentUserId ? Number(currentUserId) : userId;
 
   const { count, rows } = await Follow.findAndCountAll({
     where: { following_id: userId, is_deleted: false },
@@ -264,10 +265,10 @@ export const getFollowers = async (userId, { page = 1, limit = 20 } = {}) => {
 
   const followerUserIds = rows.map((r) => r.follower?.userId).filter(Boolean);
   let followingBackSet = new Set();
-  if (followerUserIds.length > 0) {
+  if (followerUserIds.length > 0 && viewerId) {
     const followingBackRows = await Follow.findAll({
       where: {
-        follower_id: userId,
+        follower_id: viewerId,
         following_id: { [Op.in]: followerUserIds },
         is_deleted: false,
       },
@@ -295,12 +296,13 @@ export const getFollowers = async (userId, { page = 1, limit = 20 } = {}) => {
  * Returns paginated list of users that the given userId follows.
  *
  * @param {number} userId — the user whose following list to fetch
- * @param {object} pagination — { page, limit }
+ * @param {object} pagination — { page, limit, currentUserId }
  */
-export const getFollowing = async (userId, { page = 1, limit = 20 } = {}) => {
+export const getFollowing = async (userId, { page = 1, limit = 20, currentUserId } = {}) => {
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
   const offset = (safePage - 1) * safeLimit;
+  const viewerId = currentUserId ? Number(currentUserId) : userId;
 
   const { count, rows } = await Follow.findAndCountAll({
     where: { follower_id: userId, is_deleted: false },
@@ -322,6 +324,22 @@ export const getFollowing = async (userId, { page = 1, limit = 20 } = {}) => {
     order: [['id', 'DESC']],
   });
 
+  const followingUserIds = rows.map((r) => r.following?.userId).filter(Boolean);
+  let viewerFollowingSet = new Set();
+  if (viewerId === userId) {
+    viewerFollowingSet = new Set(followingUserIds);
+  } else if (followingUserIds.length > 0 && viewerId) {
+    const viewerRows = await Follow.findAll({
+      where: {
+        follower_id: viewerId,
+        following_id: { [Op.in]: followingUserIds },
+        is_deleted: false,
+      },
+      attributes: ['following_id'],
+    });
+    viewerFollowingSet = new Set(viewerRows.map((r) => Number(r.following_id)));
+  }
+
   return {
     total: count,
     page: safePage,
@@ -329,7 +347,7 @@ export const getFollowing = async (userId, { page = 1, limit = 20 } = {}) => {
     totalPages: Math.ceil(count / safeLimit),
     following: rows.map((r) => {
       const u = serializeUser(r.following);
-      u.isFollowing = true;
+      u.isFollowing = viewerFollowingSet.has(u.userId);
       return u;
     }),
   };

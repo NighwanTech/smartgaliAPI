@@ -256,10 +256,23 @@ export const createPassword = async ({ signupSessionToken, password }) => {
 };
 
 export const signin = async ({ identifier, password }, context) => {
+  const isEmail = identifier.includes('@');
   const user = await User.findOne({ where: { ...identifierWhere(identifier), ...activeUserWhere } });
-  if (!user?.password || !(await bcrypt.compare(password, user.password))) {
-    logger.securityBlock({ reason: 'invalid_credentials', identifierType: identifier.includes('@') ? 'email' : 'mobile' });
-    throw authError(INVALID_CREDENTIALS, 401);
+  if (!user) {
+    logger.securityBlock({ reason: 'user_not_found', identifierType: isEmail ? 'email' : 'mobile' });
+    const err = authError(isEmail ? 'Email wrong. No account found.' : 'Mobile number wrong. No account found.', 401);
+    err.field = 'identifier';
+    err.errorCode = isEmail ? 'EMAIL_WRONG' : 'MOBILE_WRONG';
+    err.errors = { field: 'identifier', message: isEmail ? 'Email wrong' : 'Mobile number wrong' };
+    throw err;
+  }
+  if (!user.password || !(await bcrypt.compare(password, user.password))) {
+    logger.securityBlock({ reason: 'invalid_password', identifierType: isEmail ? 'email' : 'mobile' });
+    const err = authError('Password wrong', 401);
+    err.field = 'password';
+    err.errorCode = 'PASSWORD_WRONG';
+    err.errors = { field: 'password', message: 'Password wrong' };
+    throw err;
   }
   await user.update({ last_login: new Date() });
   const tokens = await createTokenPair(user, context);

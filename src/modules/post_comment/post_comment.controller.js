@@ -23,17 +23,12 @@ export const getCommentsByPost = async (req, res, next) => {
 export const createComment = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { post_id, content, parent_id } = req.body;
+    const { post_id, content, parent_id, parentId } = req.body;
     if (!post_id || !content?.trim()) {
       return errorResponse(res, 400, 'post_id and content are required.');
     }
-    const result = await postCommentService.createComment({
-      post_id,
-      user_id: userId,
-      content: content.trim(),
-      parent_id: parent_id || null,
-      created_by: userId,
-    });
+    const effectiveParentId = parent_id ?? parentId ?? null;
+    const result = await postCommentService.addComment(userId, post_id, content, req.correlationId, effectiveParentId);
     if (!result) {
       return errorResponse(res, 404, 'Post not found.');
     }

@@ -28,9 +28,9 @@ const parseTrustProxy = (value) => {
 const localOrigin = `http://localhost:${port}`;
 const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
 const refreshSecret = process.env.JWT_REFRESH_SECRET || (isProduction ? '' : 'development_refresh_secret');
-const accessTtl = process.env.AUTH_ACCESS_TTL || process.env.JWT_EXPIRES_IN || '15m';
-const refreshTtl = process.env.AUTH_REFRESH_TTL || '30d';
-const sessionTtl = process.env.AUTH_SESSION_TTL || '10m';
+const accessTtl = process.env.AUTH_ACCESS_TTL || process.env.JWT_EXPIRES_IN || '30d';
+const refreshTtl = process.env.AUTH_REFRESH_TTL || '90d';
+const sessionTtl = process.env.AUTH_SESSION_TTL || '30d';
 const corsOrigins = parseList(process.env.CORS_ORIGINS, [
   'http://localhost',
   'http://127.0.0.1',
@@ -85,6 +85,8 @@ const env = {
     secret: jwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || '1d',
   },
+  JWT_SECRET: jwtSecret,
+  JWT_REFRESH_SECRET: refreshSecret,
   auth: {
     accessTtl,
     refreshTtl,

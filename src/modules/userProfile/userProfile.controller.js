@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { successResponse, errorResponse } from '../../utils/response.js';
 import User from '../user/user.model.js';
+import RefreshToken from '../auth/refresh_token.model.js';
 import env from '../../config/env.js';
 import { sendOtpEmail } from '../../utils/emailService.js';
 import sequelize from '../../config/db.js';
@@ -314,20 +315,41 @@ export const verifyOTP = async (req, res, next) => {
     const accessToken = jwt.sign(
       {
         id: user.userId,
+        userId: user.userId,
+        sub: String(user.userId),
         role: user.userRole || 'resident',
         email: user.email,
         phone: user.phone,
+        type: 'access',
       },
       env.jwt.secret,
-      { expiresIn: '30d' }
+      { expiresIn: env.auth?.accessTtl || '30d' }
     );
+
+    const rawRefreshToken = crypto.randomBytes(48).toString('base64url');
+    try {
+      const secret = env.auth?.refreshSecret || env.JWT_REFRESH_SECRET || env.jwt?.secret || 'secret';
+      await RefreshToken.create({
+        user_id: user.userId,
+        token_hash: crypto.createHmac('sha256', secret).update(rawRefreshToken).digest('hex'),
+        family_id: crypto.randomUUID(),
+        expires_at: new Date(Date.now() + 90 * 86400 * 1000), // 90 days validity
+        created_by_ip: req.ip || null,
+        user_agent: req.headers['user-agent']?.slice(0, 255) || null,
+      });
+    } catch (_) {
+      // Non-fatal if table unavailable
+    }
 
     return successResponse(res, 200, 'OTP verified successfully. Login successful.', {
       accessToken,
+      refreshToken: rawRefreshToken,
       tokenType: 'Bearer',
-      expiresIn: '30d',
+      expiresIn: env.auth?.accessTtl || '30d',
+      refreshExpiresIn: '90d',
       user: {
         id: user.userId,
+        userId: user.userId,
         email: user.email,
         phone: user.phone,
         role: user.userRole || 'resident',

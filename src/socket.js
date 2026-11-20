@@ -33,6 +33,7 @@ import {
   presenceRedisKey,
 } from './infrastructure/presence/presence.js';
 import UserProfile from './modules/userProfile/userProfile.model.js';
+import BusinessProfile from './modules/business_profile/business_profile.model.js';
 
 const PRESENCE_HEARTBEAT_MS = 60_000;
 const userSocketsMap = new Map();
@@ -56,18 +57,21 @@ export const initSocket = (httpServer) => {
 
   io.use(async (socket, next) => {
     try {
+      const rawHeader = socket.handshake.headers?.authorization;
       const token =
         socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace(/^Bearers+/i, '');
+        (rawHeader ? rawHeader.replace(/^Bearer\s+/i, '').trim() : null);
 
       if (!token) {
         socketConnectionErrors.inc();
         return next(new Error('Authentication token required'));
       }
 
-      const decoded = jwt.verify(token, env.JWT_SECRET);
+      const secret = env.jwt?.secret || env.JWT_SECRET || process.env.JWT_SECRET;
+      const decoded = jwt.verify(token, secret);
+      const targetUserId = decoded.id || decoded.userId || Number(decoded.sub);
       const user = await User.findOne({
-        where: { userId: decoded.id, is_active: true, is_deleted: false },
+        where: { userId: targetUserId, is_active: true, is_deleted: false },
         attributes: ['userId', 'userName', 'status'],
       });
 
@@ -86,7 +90,8 @@ export const initSocket = (httpServer) => {
   });
 
   io.on('connection', (socket) => {
-    const uid = socket.userId;
+    const uid = Number(socket.userId);
+    socket.userId = uid;
     logger.socketConnect({ socketId: socket.id, userId: uid });
     socketConnectionsTotal.inc();
     socketConnectionsActive.inc();
@@ -96,11 +101,27 @@ export const initSocket = (httpServer) => {
     socket.join(`user:${uid}`);
     socket.join(`user_${uid}`);
 
+    // Enterprise: Auto-join Business Owner rooms
+    (async () => {
+      try {
+        const bizList = await BusinessProfile.findAll({
+          where: { userId: uid },
+          attributes: ['id'],
+        });
+        for (const biz of bizList) {
+          socket.join(`business_${biz.id}`);
+          socket.join(`business:${biz.id}`);
+        }
+      } catch (err) {
+        logger.warn('SOCKET', 'business_room_join_failed', { userId: uid, error: err.message });
+      }
+    })();
+
     const presenceReady = markUserOnline(uid)
       .then((becameOnline) => {
         if (becameOnline) {
           presenceUpdatesTotal.inc({ type: 'online' });
-          socket.broadcast.emit('presence:online', { userId: uid });
+          io.emit('presence:online', { userId: uid, isOnline: true });
         }
       })
       .catch((err) => logger.error('SOCKET', 'presence_online_failed', { userId: uid, error: err.message }));
@@ -162,20 +183,13 @@ export const initSocket = (httpServer) => {
       if (!targetUid) return typeof acknowledge === 'function' && acknowledge({ isOnline: false });
       try {
         const numId = Number(targetUid);
-        const hasLiveSocket = userSocketsMap.has(numId) && userSocketsMap.get(numId).size > 0;
-        let isOnline = hasLiveSocket;
+        const strId = String(targetUid);
+        const numSockets = userSocketsMap.get(numId)?.size || 0;
+        const strSockets = userSocketsMap.get(strId)?.size || 0;
+        let isOnline = (numSockets + strSockets) > 0;
         if (!isOnline && presenceDeps.isRedisAvailable()) {
           const live = await presenceDeps.cacheGet(presenceRedisKey(numId));
           isOnline = Boolean(live);
-        }
-        if (!isOnline) {
-          try {
-            const profile = await UserProfile.findOne({
-              where: { user_id: numId },
-              attributes: ['is_online'],
-            });
-            if (profile?.is_online) isOnline = true;
-          } catch (_) {}
         }
         if (typeof acknowledge === 'function') {
           acknowledge({ ok: true, userId: numId, isOnline });
@@ -194,6 +208,25 @@ export const initSocket = (httpServer) => {
         userId: socket.userId, 
         isTyping 
       });
+    });
+
+    // ── user:join:post (Phase 13: Real-Time Post Comments & Replies) ───────────
+    socket.on('user:join:post', async ({ postId } = {}, acknowledge) => {
+      const pid = Number(postId);
+      if (!pid) {
+        return typeof acknowledge === 'function' && acknowledge({ ok: false, error: 'postId is required' });
+      }
+      socket.join('post:' + pid);
+      socket.join('post_' + pid);
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, room: 'post:' + pid });
+    });
+
+    socket.on('user:leave:post', ({ postId } = {}) => {
+      const pid = Number(postId);
+      if (pid) {
+        socket.leave('post:' + pid);
+        socket.leave('post_' + pid);
+      }
     });
 
     // ── user:join:chat ────────────────────────────────────────────────────────
@@ -362,6 +395,25 @@ export const initSocket = (httpServer) => {
       socket.leave(`community:${communityId}`);
     });
 
+    // ── user:join:business (Enterprise Real-Time Store Room) ──────────────────
+    socket.on('user:join:business', async ({ businessId } = {}, acknowledge) => {
+      if (!businessId) return typeof acknowledge === 'function' && acknowledge({ ok: false, error: 'businessId is required' });
+      try {
+        await socket.join(`business_${businessId}`);
+        await socket.join(`business:${businessId}`);
+        if (typeof acknowledge === 'function') acknowledge({ ok: true, businessId });
+      } catch (error) {
+        logger.error('SOCKET', 'join_business_failed', { businessId, userId: uid, error: error.message });
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Unable to join business room' });
+      }
+    });
+
+    socket.on('user:leave:business', ({ businessId } = {}) => {
+      if (!businessId) return;
+      socket.leave(`business_${businessId}`);
+      socket.leave(`business:${businessId}`);
+    });
+
     socket.on('message:delivered', async ({ messageId } = {}, acknowledge) => {
       try {
         const message = await Message.findOne({
@@ -414,7 +466,8 @@ export const initSocket = (httpServer) => {
         if (result.offline) {
           presenceUpdatesTotal.inc({ type: 'offline' });
           io.emit('presence:offline', {
-            userId: disconnectUid,
+            userId: Number(disconnectUid),
+            isOnline: false,
             last_seen: result.lastSeen,
           });
         }
@@ -439,8 +492,21 @@ export const initSocket = (httpServer) => {
   return io;
 };
 
-export const broadcastMessage = (io, chatId, message) => {
-  io.to(`chat:${chatId}`).emit('chat:message', normalizeMediaPayload(message));
+export const broadcastMessage = async (io, chatId, message) => {
+  const payload = normalizeMediaPayload(message);
+  io.to(`chat:${chatId}`).emit('chat:message', payload);
+  try {
+    const participants = await ChatParticipant.findAll({
+      where: { chat_id: chatId, is_deleted: false },
+      attributes: ['user_id'],
+    });
+    for (const p of participants) {
+      io.to(`user:${p.user_id}`).emit('chat:message', payload);
+      io.to(`user_${p.user_id}`).emit('chat:message', payload);
+    }
+  } catch (err) {
+    logger.warn('SOCKET', 'broadcast_user_rooms_failed', { chatId, error: err.message });
+  }
 };
 
 export const revokeUserFromChatRoom = async (chatId, userId) => {
