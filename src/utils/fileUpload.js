@@ -9,32 +9,101 @@ const IMAGE_EXTENSIONS = Object.freeze({
   'image/jpg': '.jpg',
   'image/pjpeg': '.jpg',
   'image/png': '.png',
+  'image/x-png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'image/bmp': '.bmp',
 });
 
-const ALLOWED_IMAGE_EXT_SET = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+const ALLOWED_IMAGE_EXT_SET = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif',
+  '.bmp',
+]);
 
 const resolveImageExtension = (file) => {
-  const mime = (file?.mimetype || '').toLowerCase().trim();
+  const mime = (file?.mimetype || '').toLowerCase().split(';')[0].trim();
   if (IMAGE_EXTENSIONS[mime]) return IMAGE_EXTENSIONS[mime];
+  let ext = path.extname(file?.originalname || '').toLowerCase().trim();
+  if (ext === '.jpeg' || ext === '.jpe') ext = '.jpg';
+  if (ext && ALLOWED_IMAGE_EXT_SET.has(ext)) {
+    return ext === '.jpeg' ? '.jpg' : ext;
+  }
   if (!mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream') {
-    const ext = path.extname(file?.originalname || '').toLowerCase();
-    if (ALLOWED_IMAGE_EXT_SET.has(ext)) {
+    if (ext && ALLOWED_IMAGE_EXT_SET.has(ext)) {
       return ext === '.jpeg' ? '.jpg' : ext;
     }
+    // Safe default for camera / gallery photos without extension
+    return '.jpg';
   }
   return null;
 };
 
 const COMMUNITY_DOCUMENT_EXTENSIONS = Object.freeze({
   'application/pdf': '.pdf',
+  'application/x-pdf': '.pdf',
   'application/msword': '.doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
   'application/vnd.ms-excel': '.xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
   'text/plain': '.txt',
 });
+
+const ALLOWED_DOC_EXT_SET = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.txt',
+  '.heic',
+  '.heif',
+]);
+
+const resolveTypedExtension = (file, extensions) => {
+  const mime = (file?.mimetype || '').toLowerCase().split(';')[0].trim();
+  if (extensions[mime]) return extensions[mime];
+
+  let ext = path.extname(file?.originalname || '').toLowerCase().trim();
+  if (ext === '.jpeg' || ext === '.jpe') ext = '.jpg';
+
+  if (ext) {
+    if (ALLOWED_DOC_EXT_SET.has(ext)) {
+      return ext === '.jpeg' ? '.jpg' : ext;
+    }
+    const matched = Object.entries(extensions).find(([, val]) => val === ext);
+    if (matched) return matched[1];
+  }
+
+  // Fallback based on normalized MIME prefixes
+  if (mime === 'image/jpeg' || mime === 'image/jpg' || mime === 'image/pjpeg') return '.jpg';
+  if (mime === 'image/png' || mime === 'image/x-png') return '.png';
+  if (mime === 'application/pdf' || mime === 'application/x-pdf') return '.pdf';
+  if (mime === 'image/webp') return '.webp';
+  if (mime === 'image/gif') return '.gif';
+
+  // Generic octet-stream fallback: camera / mobile binary uploads default to .jpg
+  if (!mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream') {
+    if (ext && ALLOWED_DOC_EXT_SET.has(ext)) {
+      return ext === '.jpeg' ? '.jpg' : ext;
+    }
+    return '.jpg';
+  }
+
+  return null;
+};
 
 const COMMUNITY_MEDIA_EXTENSIONS = Object.freeze({
   ...IMAGE_EXTENSIONS,
@@ -112,28 +181,25 @@ const uploadTypedFile = (folderName, extensions, maxBytes) => {
       cb(null, uploadPath);
     },
     filename: (_req, file, cb) => {
-      let extension = extensions[file.mimetype];
-      if (!extension) {
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        const matched = Object.entries(extensions).find(([, val]) => val === ext);
-        if (matched) extension = matched[1];
-      }
-      if (!extension) {
-        const error = new Error('Unsupported file type.');
-        error.code = 'INVALID_FILE_TYPE';
-        return cb(error);
-      }
-      return cb(null, `${crypto.randomUUID()}${extension}`);
+      const extension = file.resolvedExtension || resolveTypedExtension(file, extensions) || '.jpg';
+      cb(null, `${crypto.randomUUID()}${extension}`);
     },
   });
   return multer({
     storage,
     fileFilter: (_req, file, cb) => {
-      if (extensions[file.mimetype]) return cb(null, true);
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      const matched = Object.entries(extensions).some(([, val]) => val === ext);
-      if (matched) return cb(null, true);
-      return cb(Object.assign(new Error('Unsupported file type.'), { code: 'INVALID_FILE_TYPE' }), false);
+      const extension = resolveTypedExtension(file, extensions);
+      if (extension) {
+        file.resolvedExtension = extension;
+        return cb(null, true);
+      }
+      return cb(
+        Object.assign(
+          new Error('Unsupported file type. Only PDF, JPG, PNG, and WebP documents are allowed.'),
+          { code: 'INVALID_FILE_TYPE' }
+        ),
+        false
+      );
     },
     limits: { fileSize: maxBytes },
   });
@@ -148,7 +214,7 @@ export const uploadAnnouncementAttachmentFile = (folderName = 'announcements') =
   uploadTypedFile(folderName, ANNOUNCEMENT_ATTACHMENT_EXTENSIONS, 25 * 1024 * 1024);
 
 export const uploadProviderDocument = (folderName = 'provider-documents') =>
-  uploadTypedFile(folderName, ANNOUNCEMENT_ATTACHMENT_EXTENSIONS, 10 * 1024 * 1024);
+  uploadTypedFile(folderName, ANNOUNCEMENT_ATTACHMENT_EXTENSIONS, 25 * 1024 * 1024);
 
 export const uploadSocietyDocument = (folderName = 'society') =>
   uploadTypedFile(folderName, COMMUNITY_DOCUMENT_EXTENSIONS, 25 * 1024 * 1024);

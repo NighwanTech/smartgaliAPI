@@ -197,6 +197,7 @@ async function main() {
     });
 
     // 5. Server-side validation rejects missing mandatory Layer 2 doc (FSSAI) & expired licence
+    const testPan = `AAPKB${String(ts).slice(-4)}T`;
     await testCase('5. Strict KYC blocks submission missing FSSAI or with expired licence', async () => {
       const missingRes = await apiJson(baseUrl, 'POST', '/api/v1/business-profile', {
         token: ownerToken,
@@ -210,11 +211,11 @@ async function main() {
           city_name: 'Patna',
           locality_name: 'Kankarbagh',
           pincode: '800020',
-          pan_number: 'ABCDE1234F',
+          pan_number: testPan,
           gst_exempt: true,
           strict_kyc: true,
           documents: [
-            { doc_code: 'OWNER_PAN', doc_number: 'ABCDE1234F', file_url: uploadedDocUrl },
+            { doc_code: 'OWNER_PAN', doc_number: testPan, file_url: uploadedDocUrl },
             { doc_code: 'SHOP_FRONT_PHOTO', file_url: uploadedDocUrl },
             { doc_code: 'CANCELLED_CHEQUE', file_url: uploadedDocUrl },
           ],
@@ -235,11 +236,11 @@ async function main() {
           city_name: 'Patna',
           locality_name: 'Kankarbagh',
           pincode: '800020',
-          pan_number: 'ABCDE1234F',
+          pan_number: testPan,
           gst_exempt: true,
           strict_kyc: true,
           documents: [
-            { doc_code: 'OWNER_PAN', doc_number: 'ABCDE1234F', file_url: uploadedDocUrl },
+            { doc_code: 'OWNER_PAN', doc_number: testPan, file_url: uploadedDocUrl },
             { doc_code: 'SHOP_FRONT_PHOTO', file_url: uploadedDocUrl },
             { doc_code: 'CANCELLED_CHEQUE', file_url: uploadedDocUrl },
             {
@@ -274,7 +275,7 @@ async function main() {
           pincode: '800001',
           latitude: 25.61,
           longitude: 85.11,
-          pan_number: 'ABCDE1234F',
+          pan_number: testPan,
           gst_exempt: true,
           sells_branded_goods: false,
           bank_account_name: 'Suman Devi',
@@ -284,7 +285,7 @@ async function main() {
           terms_accepted: true,
           strict_kyc: true,
           documents: [
-            { doc_code: 'OWNER_PAN', doc_number: 'ABCDE1234F', file_url: uploadedDocUrl, file_name: 'pan.png' },
+            { doc_code: 'OWNER_PAN', doc_number: testPan, file_url: uploadedDocUrl, file_name: 'pan.png' },
             { doc_code: 'SHOP_FRONT_PHOTO', file_url: uploadedDocUrl, file_name: 'shop.png' },
             { doc_code: 'CANCELLED_CHEQUE', file_url: uploadedDocUrl, file_name: 'cheque.png' },
             {
@@ -303,7 +304,7 @@ async function main() {
       createdBusinessId = prof.id;
       createdBusinessIds.push(createdBusinessId);
       assert.strictEqual(prof.owner_name, 'Suman Devi');
-      assert.strictEqual(prof.pan_number, 'ABCDE1234F');
+      assert.strictEqual(prof.pan_number, testPan);
       assert.strictEqual(prof.gst_exempt, true);
       assert.strictEqual(prof.bank_ifsc, 'SBIN0001234');
       assert.strictEqual(prof.verification_status, 'pending');

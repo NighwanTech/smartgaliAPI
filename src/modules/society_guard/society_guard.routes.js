@@ -34,7 +34,7 @@ router.delete(
   guardCtrl.removePhoto
 );
 
-// Identity Document & Verification Workflow
+// Identity Document & Verification Workflow 
 router.post(
   '/id-document',
   requireSocietyPermission('guard.onboard'),
@@ -63,3 +63,6 @@ router.put('/:id', requireSocietyPermission('guard.onboard'), guardCtrl.updateGu
 router.delete('/:id', requireSocietyPermission('guard.onboard'), guardCtrl.deleteGuard);
 
 export default router;
+
+
+

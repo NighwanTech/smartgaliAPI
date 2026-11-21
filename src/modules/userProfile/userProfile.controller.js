@@ -369,9 +369,20 @@ export const completeProfileSetup = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { role, fullName, latitude, longitude, businessName, operatingHours, bannerUrl, serviceCategory, hourlyRate, availabilityDays } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.userId;
 
-    if (!role || !['resident', 'shopkeeper', 'provider'].includes(role)) {
+    let normalizedRole = (role || '').toString().trim().toLowerCase();
+    if (['business', 'business owner', 'business_owner', 'shopkeeper'].includes(normalizedRole)) {
+      normalizedRole = 'shopkeeper';
+    } else if (['provider', 'service provider', 'service_provider'].includes(normalizedRole)) {
+      normalizedRole = 'provider';
+    } else if (['resident', 'citizen', 'user'].includes(normalizedRole)) {
+      normalizedRole = 'resident';
+    } else if (['society_admin', 'society admin', 'admin'].includes(normalizedRole)) {
+      normalizedRole = 'society_admin';
+    }
+
+    if (!normalizedRole || !['resident', 'shopkeeper', 'provider', 'society_admin'].includes(normalizedRole)) {
       await t.rollback();
       return errorResponse(res, 400, "Invalid or missing role.");
     }
@@ -397,14 +408,14 @@ export const completeProfileSetup = async (req, res, next) => {
 
     // Update role and basic info in User table as well
     await User.update({ 
-      userRole: role,
+      userRole: normalizedRole,
       userName: fullName,
       latitude,
       longitude 
     }, { where: { userId }, transaction: t });
 
     // Step 2: Conditional Role Execution
-    if (role === 'shopkeeper') {
+    if (normalizedRole === 'shopkeeper') {
       const businessData = {
         userId,
         businessName,
@@ -418,7 +429,7 @@ export const completeProfileSetup = async (req, res, next) => {
       } else {
         await BusinessProfile.create(businessData, { transaction: t });
       }
-    } else if (role === 'provider') {
+    } else if (normalizedRole === 'provider') {
       const providerData = {
         userId,
         serviceCategory,

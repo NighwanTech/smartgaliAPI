@@ -33,11 +33,40 @@ const loadSocietyAccessContext = async (req, res, next) => {
   }
 };
 
+const businessMediaFields = uploadImage('business').fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+  { name: 'logo', maxCount: 1 },
+  { name: 'banner', maxCount: 1 },
+  { name: 'cover', maxCount: 1 },
+]);
+
+const extractBusinessMedia = (req, res, next) => {
+  businessMediaFields(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Invalid image file upload.',
+      });
+    }
+    if (req.files) {
+      req.file =
+        req.files['image']?.[0] ||
+        req.files['file']?.[0] ||
+        req.files['logo']?.[0] ||
+        req.files['banner']?.[0] ||
+        req.files['cover']?.[0] ||
+        null;
+    }
+    next();
+  });
+};
+
 // Upload logo or cover banner media to persistent uploads/business storage (must precede '/:id')
 router.post(
   '/upload-media',
   authenticate,
-  uploadImage('business').single('image'),
+  extractBusinessMedia,
   businessProfileController.uploadBusinessMedia
 );
 
