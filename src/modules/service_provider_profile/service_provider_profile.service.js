@@ -491,9 +491,34 @@ export const uploadMyDocument = async (userId, arg2, arg3 = {}) => {
     masterDocType = await KycDocumentType.findOne({
       where: { code: docTypeCode, is_deleted: false, is_active: true },
     });
+    if (!masterDocType) {
+      // Normalize common client doc codes (e.g. DOC-AADHAAR, DOC-PAN, trade, etc.)
+      let normalized = 'other';
+      const clean = docTypeCode.toLowerCase();
+      if (clean.includes('aadhaar') || clean.includes('pan') || clean.includes('identity') || clean.includes('id_proof') || clean.includes('govt')) {
+        normalized = 'identity_proof';
+      } else if (clean.includes('trade') || clean.includes('license') || clean.includes('contractor')) {
+        normalized = 'trade_license';
+      } else if (clean.includes('skill') || clean.includes('cert') || clean.includes('qualification') || clean.includes('diploma') || clean.includes('degree')) {
+        normalized = 'skill_certificate';
+      } else if (clean.includes('address') || clean.includes('utility') || clean.includes('rent') || clean.includes('bill')) {
+        normalized = 'address_proof';
+      } else if (clean.includes('exp') || clean.includes('work') || clean.includes('reference')) {
+        normalized = 'experience_letter';
+      }
+      masterDocType = await KycDocumentType.findOne({
+        where: { code: normalized, is_deleted: false, is_active: true },
+      });
+    }
   } else {
     masterDocType = await KycDocumentType.findOne({
       where: { code: 'other', is_deleted: false, is_active: true },
+    });
+  }
+
+  if (!masterDocType) {
+    masterDocType = await KycDocumentType.findOne({
+      where: { is_deleted: false, is_active: true },
     });
   }
 

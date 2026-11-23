@@ -11,6 +11,8 @@ import UserProfile from './userProfile.model.js';
 import BusinessProfile from '../business_profile/business_profile.model.js';
 import ServiceProviderProfile from '../service_provider_profile/service_provider_profile.model.js';
 import ServiceCategory from '../service_category/service_category.model.js';
+import SocietyProfile from '../society_profile/society_profile.model.js';
+import SocietyMember from '../society_member/society_member.model.js';
 import { uploadImage, getImageUrl } from '../../utils/fileUpload.js';
 
 
@@ -469,10 +471,12 @@ export const completeProfileSetup = async (req, res, next) => {
       const spData = {
         user_id: userId,
         service_category_id: categoryId,
+        business_name: req.body.businessName || req.body.fullName || 'Service Provider',
         description: serviceCategory || 'Service Provider',
-        experience: '1+ years',
+        experience: req.body.experience || '1+ years',
         hourly_rate: hourlyRate || 0,
-        is_verified: true,
+        is_verified: false,
+        verification_status: 'underReview',
         is_active: true,
         is_deleted: false,
       };
@@ -480,6 +484,42 @@ export const completeProfileSetup = async (req, res, next) => {
         await existingSp.update(spData, { transaction: t });
       } else {
         await ServiceProviderProfile.create(spData, { transaction: t });
+      }
+    } else if (normalizedRole === 'society_admin') {
+      const societyName = (req.body.societyName || '').trim();
+      if (societyName) {
+        let society = await SocietyProfile.findOne({
+          where: { user_id: userId, is_deleted: false },
+          transaction: t,
+        });
+        if (!society) {
+          society = await SocietyProfile.create({
+            user_id: userId,
+            society_name: societyName,
+            address: req.body.address || null,
+            latitude: latitude || null,
+            longitude: longitude || null,
+            created_by: userId,
+            created_at: new Date(),
+          }, { transaction: t });
+
+          await SocietyMember.create({
+            society_id: society.id,
+            user_id: userId,
+            role: 'admin',
+            flat_no: req.body.flatNumber || null,
+            status: 'active',
+            joined_at: new Date(),
+            created_by: userId,
+            created_at: new Date(),
+          }, { transaction: t });
+        } else {
+          await society.update({
+            society_name: societyName,
+            latitude: latitude || society.latitude,
+            longitude: longitude || society.longitude,
+          }, { transaction: t });
+        }
       }
     }
 
