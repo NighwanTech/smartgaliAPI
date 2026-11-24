@@ -1,4 +1,5 @@
-﻿import { successResponse, errorResponse } from '../../utils/response.js';
+import path from 'path';
+import { successResponse, errorResponse } from '../../utils/response.js';
 import * as serviceProviderProfileService from './service_provider_profile.service.js';
 import { toPublicProviderProfile } from '../service_listing/service_listing.projection.js';
 import { isGlobalAdminUser } from '../../middleware/auth.middleware.js';
@@ -275,11 +276,37 @@ export const getProviderDocumentFile = async (req, res, next) => {
     }
     const userId = req.user?.id || req.user?.userId;
     const isAdmin = isGlobalAdminUser(req.user);
-    const { filePath, filename } = await serviceProviderProfileService.getProviderDocumentFile(documentId, userId, isAdmin);
+    const { filePath, filename, doc } = await serviceProviderProfileService.getProviderDocumentFile(documentId, userId, isAdmin);
 
+    const ext = path.extname(filename).toLowerCase();
+    if (ext === '.pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+    } else if (ext === '.png') {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (ext === '.jpg' || ext === '.jpeg') {
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+
+    const reqOrigin = req.headers?.origin;
+    if (reqOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
+    const isDownload = Boolean(req.query && (req.query.download === '1' || req.query.download === 'true'));
+    const downloadName = doc?.title ? `${doc.title.replace(/[^\w.-]/g, '_')}${ext}` : filename;
+    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${downloadName}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.setHeader(
+      'Content-Security-Policy',
+      "frame-ancestors 'self' http://localhost:3000 http://127.0.0.1:3000 http://localhost:5000 http://127.0.0.1:5000 https://admin.smartgali.com https://*.smartgali.com"
+    );
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.sendFile(filePath);
   } catch (error) {
     next(error);

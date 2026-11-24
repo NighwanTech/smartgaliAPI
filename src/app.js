@@ -20,6 +20,8 @@ app.set('trust proxy', env.trustProxy);
 // Global Middlewares
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+  frameguard: false,
 })); // Security headers
 const corsMiddleware = cors({
   origin: (origin, callback) => {
